@@ -2,7 +2,6 @@
 []	support cscope for Rust
 []	sheet with vim/csope shortcuts
 []	Add Eigen or use glm
-[]	Add to GitHub
 []	Camera controll class
 []	Add quat for rotations
 []	Add PLY loader
@@ -13,6 +12,7 @@
 
 [+]	read rust tutorials
 [+]	add NerdTree
+[+]	Add to GitHub
 
 [-]	provide CMake. Rust has cargo
 [-]	Reorganize folders structure

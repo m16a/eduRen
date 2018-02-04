@@ -16,7 +16,7 @@ pub type ColorFormat = gfx::format::Rgba8;
 
 gfx_defines! {
     vertex Vertex {
-        pos: [f32; 2] = "a_Pos",
+        pos: [f32; 3] = "a_Pos",
         color: [f32; 3] = "a_Color",
     }
 
@@ -30,17 +30,37 @@ gfx_defines! {
 
 const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
 
-const SQUARE: [Vertex; 3] = [
-    Vertex { pos: [0.5, -0.5], color: WHITE },
-    Vertex { pos: [-0.5, -0.5], color: WHITE },
-    Vertex { pos: [-0.5, 0.5], color: WHITE }
+
+const CUBE_VERTS: [Vertex; 8] = [
+    Vertex { pos: [-0.5, -0.5, -0.5], color: WHITE },
+    Vertex { pos: [ 0.5,  0.5, -0.5], color: WHITE },
+    Vertex { pos: [ 0.5,  0.5, -0.5], color: WHITE },
+    Vertex { pos: [-0.5,  0.5, -0.5], color: WHITE },
+    Vertex { pos: [-0.5, -0.5,  0.5], color: WHITE },
+    Vertex { pos: [ 0.5, -0.5,  0.5], color: WHITE },
+    Vertex { pos: [ 0.5,  0.5,  0.5], color: WHITE },
+    Vertex { pos: [-0.5,  0.5,  0.5], color: WHITE }
+];
+
+const CUBE_INDXS: &[u16] = &[
+		0, 1, 2,
+		0, 2, 3,
+		5, 4, 6,
+		4, 7, 6,
+		7, 3, 2,
+		6, 7, 2,
+		4, 1, 0,
+		4, 5, 1,
+		6, 2, 1,
+		5, 6, 1,
+		4, 0, 7,
+		3, 7, 0
 ];
 
 pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_ui: F) {
     use gfx_window_glutin;
     use glutin::{self, GlContext};
 
-    //type ColorFormat = gfx::format::Rgba8;
     type DepthFormat = gfx::format::DepthStencil;
 
 
@@ -74,7 +94,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/shaders/simple_150.glslf")),
         pipe::new()
     ).unwrap();
-    let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&SQUARE, ());
+    let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&CUBE_VERTS, CUBE_INDXS);
     let data = pipe::Data {
         vbuf: vertex_buffer,
         out: main_color.clone()
