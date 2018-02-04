@@ -1,0 +1,10 @@
+[package]
+
+name = "eduRen"
+version = "0.0.1"
+authors = [ "mshvorak@gmail.com" ]
+
+[dependencies]
+
+glm = "0.2.3"
+imgui = "0.0.18"
