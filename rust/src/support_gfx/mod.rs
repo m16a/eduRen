@@ -9,6 +9,7 @@ use glm::*;
 use glm::ext::*;
 use num_traits::identities::One;
 
+use camera::*;
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
@@ -43,7 +44,7 @@ const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
 
 const CUBE_VERTS: [Vertex; 8] = [
     Vertex { pos: [-0.5, -0.5, -0.5], color: WHITE },
-    Vertex { pos: [ 0.5,  0.5, -0.5], color: WHITE },
+    Vertex { pos: [ 0.5, -0.5, -0.5], color: WHITE },
     Vertex { pos: [ 0.5,  0.5, -0.5], color: WHITE },
     Vertex { pos: [-0.5,  0.5, -0.5], color: WHITE },
     Vertex { pos: [-0.5, -0.5,  0.5], color: WHITE },
@@ -78,6 +79,7 @@ fn mat4_to_arr(m : & Matrix4<f32>) -> [[f32; 4]; 4]{
 pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_ui: F) {
     use gfx_window_glutin;
     use glutin::{self, GlContext};
+    use camera::Camera;
 
     type DepthFormat = gfx::format::DepthStencil;
 
@@ -106,6 +108,8 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
             Shaders::GlSl110
         }
     };
+
+    let mut cam = Camera::new();
 
     let pso = factory.create_pipeline_simple(
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslv")),
@@ -149,10 +153,10 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
                         let pressed = input.state == Pressed;
                         match input.virtual_keycode {
                             Some(Key::Tab) => imgui.set_key(0, pressed),
-                            Some(Key::Left) => imgui.set_key(1, pressed),
-                            Some(Key::Right) => imgui.set_key(2, pressed),
-                            Some(Key::Up) => imgui.set_key(3, pressed),
-                            Some(Key::Down) => imgui.set_key(4, pressed),
+                            Some(Key::Left) => {cam.process_key(CameraKey::YawLeft, 0.01); imgui.set_key(1, pressed);},
+                            Some(Key::Right) => {cam.process_key(CameraKey::YawRight, 0.01); imgui.set_key(2, pressed);},
+                            Some(Key::Up) => {cam.process_key(CameraKey::PitchUp, 0.01); imgui.set_key(3, pressed);},
+                            Some(Key::Down) => {cam.process_key(CameraKey::PitchDown, 0.01); imgui.set_key(4, pressed);},
                             Some(Key::PageUp) => imgui.set_key(5, pressed),
                             Some(Key::PageDown) => imgui.set_key(6, pressed),
                             Some(Key::Home) => imgui.set_key(7, pressed),
@@ -161,7 +165,6 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
                             Some(Key::Back) => imgui.set_key(10, pressed),
                             Some(Key::Return) => imgui.set_key(11, pressed),
                             Some(Key::Escape) => imgui.set_key(12, pressed),
-                            Some(Key::A) => imgui.set_key(13, pressed),
                             Some(Key::C) => imgui.set_key(14, pressed),
                             Some(Key::V) => imgui.set_key(15, pressed),
                             Some(Key::X) => imgui.set_key(16, pressed),
@@ -173,6 +176,11 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
                             Some(Key::RShift) => imgui.set_key_shift(pressed),
                             Some(Key::LAlt) | Some(Key::RAlt) => imgui.set_key_alt(pressed),
                             Some(Key::LWin) | Some(Key::RWin) => imgui.set_key_super(pressed),
+                            
+                            Some(Key::A) => {cam.process_key(CameraKey::Left, 0.01); },
+                            Some(Key::D) => {cam.process_key(CameraKey::Right, 0.01); },
+                            Some(Key::W) => {cam.process_key(CameraKey::Forward, 0.01); },
+                            Some(Key::S) => {cam.process_key(CameraKey::Back, 0.01); },
                             _ => {}
                         }
                     }
@@ -217,7 +225,11 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         }
 
         encoder.clear(&main_color, clear_color);
-        let m = translate(&Matrix4::one(), vec3(1.0, 0.0, 0.0));
+        //let m = translate(&Matrix4::one(), vec3(1.0, 0.0, 0.0));
+        let s = scale(&Matrix4::one(), vec3(0.1, 0.1, 0.1));
+        let p = perspective(radians(90.0), 2.0, 0.01, 10.0);
+        let mut m = cam.get_view_mat();
+        m = p * m * s;
         let t = Transform { transform : mat4_to_arr(&m)};
         encoder.update_buffer(&data.transform, &[t], 0).expect(
             "Update buffer failed",
