@@ -5,6 +5,8 @@ extern crate glutin;
 #[macro_use]
 extern crate imgui;
 extern crate imgui_gfx_renderer;
+extern crate glm;
+extern crate num_traits;
 
 use imgui::*;
 

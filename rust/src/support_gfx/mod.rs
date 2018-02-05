@@ -5,6 +5,10 @@ use gfx::{self, Device};//self allows use gfx and gfx::Device implicitly
 
 use gfx::traits::FactoryExt;
 
+use glm::*;
+use glm::ext::*;
+use num_traits::identities::One;
+
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
     pos: (i32, i32),
@@ -20,8 +24,13 @@ gfx_defines! {
         color: [f32; 3] = "a_Color",
     }
 
+    constant Transform {
+        transform: [[f32; 4]; 4] = "u_Transform",
+    }
+
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
+        transform: gfx::ConstantBuffer<Transform> = "Transform",
         //awesome: gfx::TextureSampler<[f32; 4]> = "t_Awesome",
         //switch: gfx::Global<i32> = "i_Switch",
         out: gfx::RenderTarget<ColorFormat> = "Target0",
@@ -57,6 +66,14 @@ const CUBE_INDXS: &[u16] = &[
 		3, 7, 0
 ];
 
+fn mat4_to_arr(m : & Matrix4<f32>) -> [[f32; 4]; 4]{
+    let mut res = [[0.0; 4]; 4];
+    for i in 0..4{
+        res[i] = *m[i].as_array();
+    }
+    res
+}
+
 pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_ui: F) {
     use gfx_window_glutin;
     use glutin::{self, GlContext};
@@ -90,13 +107,15 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
     };
 
     let pso = factory.create_pipeline_simple(
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/shaders/simple_150.glslv")),
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/shaders/simple_150.glslf")),
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslv")),
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslf")),
         pipe::new()
     ).unwrap();
     let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&CUBE_VERTS, CUBE_INDXS);
+    let transform_buffer = factory.create_constant_buffer(1);
     let data = pipe::Data {
         vbuf: vertex_buffer,
+        transform: transform_buffer,
         out: main_color.clone()
     };
 
@@ -197,6 +216,11 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         }
 
         encoder.clear(&main_color, clear_color);
+        let m = translate(&Matrix4::one(), vec3(1.0, 0.0, 0.0));
+        let t = Transform { transform : mat4_to_arr(&m)};
+        encoder.update_buffer(&data.transform, &[t], 0).expect(
+            "Update buffer failed",
+            );
         encoder.draw(&slice, &pso, &data);
         renderer.render(ui, &mut factory, &mut encoder).expect(
             "Rendering failed",
