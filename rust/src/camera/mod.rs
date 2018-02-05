@@ -27,7 +27,6 @@ impl Camera{
                 right : vec3(1.0, 1.0, 0.0),
                 yaw: 0.0,
                 pitch: 0.0,
-                zoom: 1.0
         }
     }
 

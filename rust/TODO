@@ -3,6 +3,9 @@
 []	sheet with vim/csope shortcuts
 []	Add Eigen or use glm
 []	Camera controll class
+[]	Draw camera info
+[]	Draw FPS 
+[]	Draw center of coordinate system with axes
 []	Add quat for rotations
 []	Add PLY loader
 []	Provide mesh normals calculation
