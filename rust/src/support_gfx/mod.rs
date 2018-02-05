@@ -9,6 +9,7 @@ use glm::*;
 use glm::ext::*;
 use num_traits::identities::One;
 
+
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
     pos: (i32, i32),
