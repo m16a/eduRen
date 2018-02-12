@@ -7,9 +7,9 @@ use gfx::traits::FactoryExt;
 
 use glm::*;
 use glm::ext::*;
-use num_traits::identities::One;
 
 use camera::*;
+
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
@@ -53,7 +53,7 @@ const CUBE_VERTS: [Vertex; 8] = [
     Vertex { pos: [-0.5,  0.5,  0.5], color: WHITE }  //7
 ];
 
-const CUBE_INDXS: &[u16] = &[
+const CUBE_INDXS: [u16; 36] = [
 		0, 1, 2,
 		0, 2, 3,
 		5, 4, 6,
@@ -134,7 +134,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslf")),
         pipe::new()
     ).unwrap();
-    let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&CUBE_VERTS, CUBE_INDXS);
+    let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&CUBE_VERTS, &CUBE_INDXS[..]);
     let transform_buffer = factory.create_constant_buffer(1);
     let data = pipe::Data {
         vbuf: vertex_buffer,

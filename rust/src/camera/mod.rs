@@ -1,6 +1,5 @@
 use glm::*;
 use glm::ext::*;
-use num_traits::identities::One;
 
 pub enum CameraKey{
     Forward,
