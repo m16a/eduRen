@@ -129,11 +129,29 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
 
     let mut cam = Camera::new();
 
+    /*
     let pso = factory.create_pipeline_simple(
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslv")),
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslf")),
         pipe::new()
     ).unwrap();
+    */
+
+
+    let mut wireframe_fill_mode = gfx::state::Rasterizer::new_fill(); 
+    wireframe_fill_mode.method = gfx::state::RasterMethod::Line(3);
+
+    let path_shader = factory.link_program(
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslv")),
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslf")),
+        ).unwrap();
+    let pso = factory.create_pipeline_from_program(&path_shader, 
+                                                   gfx::Primitive::TriangleList, 
+                                                   wireframe_fill_mode, 
+                                                   pipe::new()
+    ).unwrap();
+    
+
     let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&CUBE_VERTS, &CUBE_INDXS[..]);
     let transform_buffer = factory.create_constant_buffer(1);
     let data = pipe::Data {
@@ -143,6 +161,13 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         out_depth: main_depth.clone(),
     };
 
+    //wireframe drawing
+    /*
+    let wireiframe_pso = factory.create_pipline_from_program(
+
+        )
+        */
+    
     let mut imgui = ImGui::init();
     let mut renderer = Renderer::init(&mut imgui, &mut factory, shaders, main_color.clone())
         .expect("Failed to initialize renderer");
@@ -248,7 +273,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         encoder.clear_depth(&main_depth, 1.0);
         //let s = scale(&Matrix4::one(), vec3(0.1, 0.1, 0.1));
         let aspect = size_pixels.0 as f32 / size_pixels.1 as f32;
-        let p = perspective(radians(90.0), aspect, 0.01, 10.0);
+        let p = perspective(radians(50.0), aspect, 0.01, 10.0);
         let mut m = cam.get_view_mat();
         //println!("m: {:?}", mm);
         m = p * m;

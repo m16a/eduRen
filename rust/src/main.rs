@@ -21,6 +21,7 @@ fn main() {
 }
 
 fn hello_world(ui: &Ui) -> bool {
+    /*
     ui.window(im_str!("Hello world"))
         .size((300.0, 100.0), ImGuiCond::FirstUseEver)
         .build(|| {
@@ -34,6 +35,7 @@ fn hello_world(ui: &Ui) -> bool {
                 mouse_pos.1
             ));
         });
+    */
 
     true
 }
