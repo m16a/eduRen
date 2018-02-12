@@ -1,4 +1,4 @@
-use imgui::{ImGui, Ui};
+use imgui::*;
 use imgui_gfx_renderer::{Renderer, Shaders};
 use std::time::Instant;
 use gfx::{self, Device};//self allows use gfx and gfx::Device implicitly
@@ -19,6 +19,7 @@ struct MouseState {
 }
 
 pub type ColorFormat = gfx::format::Rgba8;
+pub type DepthFormat = gfx::format::DepthStencil;
 
 gfx_defines! {
     vertex Vertex {
@@ -33,9 +34,8 @@ gfx_defines! {
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
         transform: gfx::ConstantBuffer<Transform> = "Transform",
-        //awesome: gfx::TextureSampler<[f32; 4]> = "t_Awesome",
-        //switch: gfx::Global<i32> = "i_Switch",
-        out: gfx::RenderTarget<ColorFormat> = "Target0",
+        out_color: gfx::BlendTarget<ColorFormat> = ("Target0", gfx::state::MASK_ALL, gfx::preset::blend::ALPHA),
+        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
     }
 }
 
@@ -43,14 +43,14 @@ const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
 
 
 const CUBE_VERTS: [Vertex; 8] = [
-    Vertex { pos: [-0.5, -0.5, -0.5], color: WHITE },
-    Vertex { pos: [ 0.5, -0.5, -0.5], color: WHITE },
-    Vertex { pos: [ 0.5,  0.5, -0.5], color: WHITE },
-    Vertex { pos: [-0.5,  0.5, -0.5], color: WHITE },
-    Vertex { pos: [-0.5, -0.5,  0.5], color: WHITE },
-    Vertex { pos: [ 0.5, -0.5,  0.5], color: WHITE },
-    Vertex { pos: [ 0.5,  0.5,  0.5], color: WHITE },
-    Vertex { pos: [-0.5,  0.5,  0.5], color: WHITE }
+    Vertex { pos: [-0.5, -0.5, -0.5], color: WHITE }, //0
+    Vertex { pos: [ 0.5, -0.5, -0.5], color: WHITE }, //1
+    Vertex { pos: [ 0.5,  0.5, -0.5], color: WHITE }, //2
+    Vertex { pos: [-0.5,  0.5, -0.5], color: WHITE }, //3
+    Vertex { pos: [-0.5, -0.5,  0.5], color: WHITE }, //4
+    Vertex { pos: [ 0.5, -0.5,  0.5], color: WHITE }, //5
+    Vertex { pos: [ 0.5,  0.5,  0.5], color: WHITE }, //6
+    Vertex { pos: [-0.5,  0.5,  0.5], color: WHITE }  //7
 ];
 
 const CUBE_INDXS: &[u16] = &[
@@ -75,13 +75,31 @@ fn mat4_to_arr(m : & Matrix4<f32>) -> [[f32; 4]; 4]{
     }
     res
 }
+fn camera_widget(ui : &Ui, c : &Camera){
+    
+    ui.window(im_str!("Camera")).size((300.0, 100.0), ImGuiCond::FirstUseEver).build(||{
+        ui.text(im_str!(
+            "pos: {:?}",
+            c.pos()
+        ));
+        ui.text(im_str!(
+            "YP: {:?}",
+            c.yaw_pitch()
+        ));
+        /*
+        ui.text(im_str!(
+            "Transform: {:?}",
+            c.get_view_mat()
+        ));
+        */
+    });
+}
 
 pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_ui: F) {
     use gfx_window_glutin;
     use glutin::{self, GlContext};
     use camera::Camera;
 
-    type DepthFormat = gfx::format::DepthStencil;
 
 
     let mut events_loop = glutin::EventsLoop::new();
@@ -121,7 +139,8 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
     let data = pipe::Data {
         vbuf: vertex_buffer,
         transform: transform_buffer,
-        out: main_color.clone()
+        out_color: main_color.clone(),
+        out_depth: main_depth.clone(),
     };
 
     let mut imgui = ImGui::init();
@@ -217,27 +236,28 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         update_mouse(&mut imgui, &mut mouse_state);
 
         let size_points = window.get_inner_size_points().unwrap();
-        let size_pixels = window.get_inner_size_pixels().unwrap();
+        let size_pixels = window.get_inner_size().unwrap();
 
         let ui = imgui.frame(size_points, size_pixels, delta_s);
         if !run_ui(&ui) {
             break;
         }
+        camera_widget(&ui, &cam);
 
         encoder.clear(&main_color, clear_color);
-        //let m = translate(&Matrix4::one(), vec3(1.0, 0.0, 0.0));
-        let s = scale(&Matrix4::one(), vec3(0.1, 0.1, 0.1));
-        let p = perspective(radians(90.0), 2.0, 0.01, 10.0);
+        encoder.clear_depth(&main_depth, 1.0);
+        //let s = scale(&Matrix4::one(), vec3(0.1, 0.1, 0.1));
+        let aspect = size_pixels.0 as f32 / size_pixels.1 as f32;
+        let p = perspective(radians(90.0), aspect, 0.01, 10.0);
         let mut m = cam.get_view_mat();
-        m = p * m * s;
+        //println!("m: {:?}", mm);
+        m = p * m;
         let t = Transform { transform : mat4_to_arr(&m)};
         encoder.update_buffer(&data.transform, &[t], 0).expect(
             "Update buffer failed",
             );
         encoder.draw(&slice, &pso, &data);
-        renderer.render(ui, &mut factory, &mut encoder).expect(
-            "Rendering failed",
-        );
+        renderer.render(ui, &mut factory, &mut encoder).expect("Rendering failed",);
 
         encoder.flush(&mut device);
         window.context().swap_buffers().unwrap();

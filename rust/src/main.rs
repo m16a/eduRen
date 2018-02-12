@@ -9,6 +9,7 @@ extern crate glm;
 extern crate num_traits;
 
 use imgui::*;
+use glm::*;
 
 mod camera;
 mod support_gfx;
@@ -16,6 +17,7 @@ mod support_gfx;
 use camera::*;
 
 const CLEAR_COLOR: [f32; 4] = [115.0/255.0, 140.0/255.0, 153.0/255.0, 1.0];
+
 
 fn main() {
     support_gfx::run("eduRen".to_owned(), CLEAR_COLOR, hello_world);

@@ -26,18 +26,25 @@ pub struct Camera{
 
 impl Camera{
     pub fn new() -> Camera {
-        let mut c = Camera {pos : vec3(1.0, 0.0, 0.0),
-                front : vec3(-1.0, 0.0, 0.0),
-                up : vec3(0.0, 0.0, 1.0),
-                world_up : vec3(0.0, 0.0, 1.0),
-                right : vec3(0.0, -1.0, 0.0),
-                yaw: 0.0,
+        let mut c = Camera {pos : vec3(0.0, 0.0, 0.0),
+                front : vec3(0.0, 0.0, -1.0),
+                up : vec3(0.0, 1.0, 0.0),
+                world_up : vec3(0.0, 1.0, 0.0),
+                right : vec3(0.0, 1.0, 0.0),
+                yaw: -90.0,
                 pitch: 0.0,
         };
 
         c.update_vectors();
         c
 
+    }
+    pub fn pos(&self) -> Vector3<f32>{
+        self.pos
+    }
+
+    pub fn yaw_pitch(&self) -> (f32, f32){
+        (self.yaw, self.pitch)
     }
 
     pub fn get_view_mat(&self) -> Matrix4<f32>{
@@ -54,8 +61,8 @@ impl Camera{
             CameraKey::Left => self.pos = self.pos - self.right*v,
             CameraKey::PitchUp => { self.pitch += angle;  if self.pitch  > 89.0 {self.pitch = 89.0;}}, 
             CameraKey::PitchDown => { self.pitch -= angle; if self.pitch < -89.0 { self.pitch = -89.0;} },
-            CameraKey::YawLeft => self.yaw += angle, 
-            CameraKey::YawRight => self.yaw -= angle, 
+            CameraKey::YawLeft => self.yaw -= angle, 
+            CameraKey::YawRight => self.yaw += angle, 
         }
 
         match dir{
