@@ -25,7 +25,7 @@ pub struct Camera{
 
 impl Camera{
     pub fn new() -> Camera {
-        let mut c = Camera {pos : vec3(0.0, 0.0, 0.0),
+        let mut c = Camera {pos : vec3(0.0, 0.0, 2.0),
                 front : vec3(0.0, 0.0, -1.0),
                 up : vec3(0.0, 1.0, 0.0),
                 world_up : vec3(0.0, 1.0, 0.0),

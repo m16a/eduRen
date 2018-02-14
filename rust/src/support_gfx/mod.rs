@@ -75,6 +75,7 @@ fn mat4_to_arr(m : & Matrix4<f32>) -> [[f32; 4]; 4]{
     }
     res
 }
+
 fn camera_widget(ui : &Ui, c : &Camera){
     
     ui.window(im_str!("Camera")).size((300.0, 100.0), ImGuiCond::FirstUseEver).build(||{
@@ -92,6 +93,15 @@ fn camera_widget(ui : &Ui, c : &Camera){
             c.get_view_mat()
         ));
         */
+    });
+}
+
+fn general_info_widget(ui : &Ui, fps : i32){
+    
+    ui.window(im_str!("Info")).size((300.0, 100.0), ImGuiCond::FirstUseEver).build(||{
+        ui.text(im_str!(
+            "FPS: {}", fps
+        ));
     });
 }
 
@@ -267,6 +277,8 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         if !run_ui(&ui) {
             break;
         }
+        let fps = (1.0 / delta_s) as i32;
+        general_info_widget(&ui, fps);
         camera_widget(&ui, &cam);
 
         encoder.clear(&main_color, clear_color);

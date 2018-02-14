@@ -1,7 +1,8 @@
 []	deal with copy/paste to system buffer
 []	support cscope for Rust
 []	sheet with vim/csope shortcuts
-[]	Draw FPS 
+[]	refactor existing code 
+[]	Abillity to change rasterize mode (points, wireframes, fill)	
 []	Draw center of coordinate system with axes
 []	Add quat for rotations
 []	Add PLY loader
@@ -16,6 +17,7 @@
 [+]	Add Eigen or use glm
 [+]	Camera controll class
 [+]	Draw camera info
+[+]	Draw FPS counter
 
 [-]	provide CMake. Rust has cargo
 [-]	Reorganize folders structure
