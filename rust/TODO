@@ -10,6 +10,7 @@
 []	Flat, Gouraud, Phong shading
 []	Shadow maps
 []	Texturing
+[]	Provide classical CS, not OpenGL one
 
 [+]	read rust tutorials
 [+]	add NerdTree

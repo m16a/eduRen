@@ -179,7 +179,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         */
     
     let mut imgui = ImGui::init();
-    let mut renderer = Renderer::init(&mut imgui, &mut factory, shaders, main_color.clone())
+    let mut imgui_renderer = Renderer::init(&mut imgui, &mut factory, shaders, main_color.clone())
         .expect("Failed to initialize renderer");
 
     configure_keys(&mut imgui);
@@ -198,7 +198,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
                 match event {
                     Resized(_, _) => {
                         gfx_window_glutin::update_views(&window, &mut main_color, &mut main_depth);
-                        renderer.update_render_target(main_color.clone());
+                        imgui_renderer.update_render_target(main_color.clone());
                     }
                     Closed => quit = true,
                     KeyboardInput { input, .. } => {
@@ -290,11 +290,9 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         //println!("m: {:?}", mm);
         m = p * m;
         let t = Transform { transform : mat4_to_arr(&m)};
-        encoder.update_buffer(&data.transform, &[t], 0).expect(
-            "Update buffer failed",
-            );
+        encoder.update_buffer(&data.transform, &[t], 0).expect("Update buffer failed",);
         encoder.draw(&slice, &pso, &data);
-        renderer.render(ui, &mut factory, &mut encoder).expect("Rendering failed",);
+        imgui_renderer.render(ui, &mut factory, &mut encoder).expect("Rendering failed",);
 
         encoder.flush(&mut device);
         window.context().swap_buffers().unwrap();
