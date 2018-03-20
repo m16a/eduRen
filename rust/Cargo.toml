@@ -16,3 +16,4 @@ glutin = "0.11"
 imgui-gfx-renderer = { version = "0.0.18"}
 imgui-glium-renderer = { version = "0.0.18" }
 num-traits = "*"
+assimp-sys = "0.3.1"

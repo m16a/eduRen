@@ -10,6 +10,10 @@ use glm::ext::*;
 
 use camera::*;
 
+use assimp_sys::*;
+use std::ffi::CString;
+use std::ffi::CStr;
+
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
@@ -149,7 +153,8 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
 
 
     let mut wireframe_fill_mode = gfx::state::Rasterizer::new_fill(); 
-    wireframe_fill_mode.method = gfx::state::RasterMethod::Line(3);
+    wireframe_fill_mode.method = gfx::state::RasterMethod::Line(1);
+    //wireframe_fill_mode.method = gfx::state::RasterMethod::Point;
 
     let path_shader = factory.link_program(
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/simple_150.glslv")),
@@ -161,8 +166,45 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
                                                    pipe::new()
     ).unwrap();
     
+    let mut vrts: Vec<Vertex> = Vec::new();
+    let mut indcs: Vec<u32> = Vec::new();
+    
 
-    let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&CUBE_VERTS, &CUBE_INDXS[..]);
+    //let ptr = CString::new("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res2.ply").unwrap().into_raw();
+    let ptr = CString::new("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply").unwrap().into_raw();
+    unsafe{
+        let scene = aiImportFile(ptr, AiPostProcessSteps::empty());
+        let cstr = CStr::from_ptr(aiGetErrorString());
+        if scene.is_null(){
+            println!("{:?}", cstr);
+        }
+        let tmp = (*scene).num_meshes;
+        println!("Loaded {} meshes", tmp);
+        println!("Childrenn cnt {:?}", (*(*scene).root_node).num_children);
+        println!("Name {:?}", (*(*scene).root_node).name);
+        println!("Matrix {:?}", (*(*scene).root_node).transformation);
+
+        let mesh = (*(*scene).meshes.offset(0));
+        println!("Vertices cnt {:?}", (*mesh).num_vertices);
+        for i in 0..((*mesh).num_vertices-1){
+            let v = *(*mesh).vertices.offset(i as isize);
+            vrts.push(Vertex{pos:[v.x, v.y, v.z], color:WHITE});
+        }
+
+        println!("Faces cnt {:?}", (*mesh).num_faces);
+
+        
+        for i in 0..(*mesh).num_faces-1{
+            let face = &(*(*mesh).faces.offset(i as isize));
+            indcs.push(*(*face).indices.offset(0) as u32);
+            indcs.push(*(*face).indices.offset(1) as u32);
+            indcs.push(*(*face).indices.offset(2) as u32);
+        }
+
+    }
+
+    //let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&CUBE_VERTS, &CUBE_INDXS[..]);
+    let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&vrts, &indcs[..]);
     let transform_buffer = factory.create_constant_buffer(1);
     let data = pipe::Data {
         vbuf: vertex_buffer,
@@ -187,6 +229,8 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
     let mut last_frame = Instant::now();
     let mut mouse_state = MouseState::default();
     let mut quit = false;
+
+    
 
     loop {
         events_loop.poll_events(|event| {

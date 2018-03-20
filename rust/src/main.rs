@@ -7,6 +7,8 @@ extern crate imgui;
 extern crate imgui_gfx_renderer;
 extern crate glm;
 extern crate num_traits;
+extern crate assimp_sys;
+
 
 use imgui::*;
 
