@@ -62,8 +62,8 @@ void MyDrawController::Init(void)
 
 
 	ShaderInfo shaders[] = {
-		{ GL_VERTEX_SHADER, "main.vert" },
-		{ GL_FRAGMENT_SHADER, "main.frag" },
+		{ GL_VERTEX_SHADER, "shaders/main.vert" },
+		{ GL_FRAGMENT_SHADER, "shaders/main.frag" },
 		{ GL_NONE, NULL }
 	};
 

@@ -30,17 +30,9 @@ target_include_directories(eduRen PUBLIC ${GLFW3_INCLUDE_DIRS})
 
 find_package(OpenGL)
 
+target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} dl)
+
+
 #find_library(SERVER_LINK_LIB server ${CMAKE_SOURCE_DIR}/server/lib/)
 #include_directories(${CMAKE_SOURCE_DIR}/server/lib/include/)
 #include_directories(${CMAKE_SOURCE_DIR}/protocol/include/)
-
-#find_library(PROTOCOL_LINK_LIB Protocol ${CMAKE_SOURCE_DIR}/protocol/)
-
-
-target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} dl)
-
-#findnk_libraries(testapp ${SDL2_LIBRARIES})
-#include_directories(${CMAKE_SOURCE_DIR}/server/)
-#message("found lib"  ${SERVER_LINK_LIB})
-
-#target_link_libraries(sv_run ${SERVER_LINK_LIB})
