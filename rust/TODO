@@ -5,7 +5,6 @@
 []	Abillity to change rasterize mode (points, wireframes, fill)	
 []	Draw center of coordinate system with axes
 []	Add quat for rotations
-[]	Add PLY loader
 []	Provide mesh normals calculation
 []	Flat, Gouraud, Phong shading
 []	Shadow maps
@@ -19,6 +18,7 @@
 [+]	Camera controll class
 [+]	Draw camera info
 [+]	Draw FPS counter
+[+]	Add PLY loader
 
 [-]	provide CMake. Rust has cargo
 [-]	Reorganize folders structure

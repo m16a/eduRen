@@ -11,6 +11,5 @@ Cargo.lock
 **/*.rs.bk
 
 /models/
-/c++/
 
 **/*.swp
