@@ -6,11 +6,11 @@ set (CMAKE_CXX_STANDARD 14)
 set(SOURCES 
 	main.cpp
 	draw.cpp
-	imgui/imgui-master/imgui.cpp
-	imgui/imgui-master/imgui_demo.cpp
-	imgui/imgui-master/imgui_draw.cpp
-	imgui/imgui_impl_glfw_gl3.cpp
-	imgui/libs/gl3w/GL/gl3w.c
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui.cpp
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui_demo.cpp
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui_draw.cpp
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui_impl_glfw_gl3.cpp
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/libs/gl3w/GL/gl3w.c
 	${CMAKE_SOURCE_DIR}/lib/LoadShaders.cpp
 	${CMAKE_SOURCE_DIR}/lib/targa.cpp
 	)
@@ -18,10 +18,9 @@ set(SOURCES
 add_executable(eduRen ${SOURCES})
 
 include_directories(
-	imgui/
-	imgui/imgui-master/
- 	imgui/imgui-master/examples/ 
-	imgui/libs/gl3w/
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/
+	${CMAKE_SOURCE_DIR}/3rdparty/imgui/libs/gl3w/
 	${CMAKE_SOURCE_DIR}/include/
 	)
 
