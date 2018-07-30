@@ -11,6 +11,10 @@
 #include <GLFW/glfw3.h>
 #include "draw.h"
 
+#include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 static void error_callback(int error, const char* description)
 {
     fprintf(stderr, "Error %d: %s\n", error, description);
@@ -64,25 +68,17 @@ int main(int, char**)
 
 		mdc.Init();
 		
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them. 
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple. 
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Read 'extra_fonts/README.txt' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //ImGuiIO& io = ImGui::GetIO();
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/Cousine-Regular.ttf", 15.0f);
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/ProggyTiny.ttf", 10.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
-
     bool show_test_window = true;
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+
+		aiLogStream stream;
+	//	stream = aiGetPredefinedLogStream(aiDefaultLogStream_STDOUT,NULL);
+	//	aiAttachLogStream(&stream);
+
+		stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE,"assimp_log.txt");
+		aiAttachLogStream(&stream);
 
 
     // Main loop
@@ -105,10 +101,12 @@ int main(int, char**)
             static float f = 0.0f;
 						const vmath::vec3& cd = mdc.GetCamDir();
             ImGui::Text("Cam dir %.2f %.2f %.2f", cd[0], cd[1], cd[2]);
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-            ImGui::ColorEdit3("clear color", (float*)&clear_color);
-            if (ImGui::Button("Test Window")) show_test_window ^= 1;
-            if (ImGui::Button("Another Window")) show_another_window ^= 1;
+						
+						unsigned int meshN = 0;
+						if (mdc.GetScene())
+							meshN = mdc.GetScene()->mNumMeshes;
+            ImGui::Text("meshes:  %d", meshN);
+
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         }
 
@@ -142,6 +140,8 @@ int main(int, char**)
     // Cleanup
     ImGui_ImplGlfwGL3_Shutdown();
     glfwTerminate();
+
+		aiDetachAllLogStreams();
 
     return 0;
 }

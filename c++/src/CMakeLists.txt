@@ -30,7 +30,7 @@ target_include_directories(eduRen PUBLIC ${GLFW3_INCLUDE_DIRS})
 
 find_package(OpenGL)
 
-target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} dl)
+target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} dl assimp)
 
 
 #find_library(SERVER_LINK_LIB server ${CMAKE_SOURCE_DIR}/server/lib/)
