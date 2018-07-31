@@ -21,6 +21,17 @@ GLuint Buffers[2 * MAX_MESHES_COUNT];
 GLuint gMVP_Location = 0;
 GLuint g_program = 0;
 
+inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
+{
+    glm::mat4 to;
+
+    to[0][0] = (GLfloat)from->a1; to[0][1] = (GLfloat)from->b1;  to[0][2] = (GLfloat)from->c1; to[0][3] = (GLfloat)from->d1;
+    to[1][0] = (GLfloat)from->a2; to[1][1] = (GLfloat)from->b2;  to[1][2] = (GLfloat)from->c2; to[1][3] = (GLfloat)from->d2;
+    to[2][0] = (GLfloat)from->a3; to[2][1] = (GLfloat)from->b3;  to[2][2] = (GLfloat)from->c3; to[2][3] = (GLfloat)from->d3;
+    to[3][0] = (GLfloat)from->a4; to[3][1] = (GLfloat)from->b4;  to[3][2] = (GLfloat)from->c4; to[3][3] = (GLfloat)from->d4;
+
+    return to;
+}
 void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 {
 	for (int i = 0; i < mesh.mNumFaces; ++i)
@@ -34,7 +45,8 @@ void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 
 void MyDrawController::Init(void)
 {
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.obj");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
 	assert(res);
@@ -111,7 +123,9 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 {
 	aiMatrix4x4 m = nd->mTransformation;
 
-	aiTransposeMatrix4(&m);
+	//aiTransposeMatrix4(&m);
+
+	glm::mat4 t = aiMatrix4x4ToGlm(&m);
 
 	for (int i=0; i < nd->mNumMeshes; ++i) 
 	{
@@ -120,7 +134,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
 		glBindVertexArray(VAOs[nd->mMeshes[i]]);
 		
-		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f)) * m_cam.GetViewMatrix();
+		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * m_cam.GetViewMatrix() * t;
 
 		glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, &mvp_matrix[0][0]);
 		GLint size = 0;
