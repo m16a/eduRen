@@ -1,5 +1,4 @@
-#include "vmath.h"
-
+#include "camera.h"
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -14,34 +13,28 @@ class MyDrawController
 	void Init();
 	void Render(int w, int h);
 
-	//camera
-	vmath::vec3 GetCamDir() const { return m_camDir;}
+	Camera& GetCam() { return m_cam;}
 	
 	//input handling
-	void OnKeyUp();
-	void OnKeyDown();
-	void OnKeyRight();
-	void OnKeyLeft();
+	void OnKeyUp(float dt);
+	void OnKeyDown(float dt);
+	void OnKeyRight(float dt);
+	void OnKeyLeft(float dt);
 
-	void OnKeyW();
-	void OnKeyS();
-	void OnKeyA();
-	void OnKeyD();
-	void OnKeySpace();
+	void OnKeyW(float dt);
+	void OnKeyS(float dt);
+	void OnKeyA(float dt);
+	void OnKeyD(float dt);
+	void OnKeySpace(float dt);
 
-	public:
 	bool LoadScene(const char* path);
-
 	const aiScene* GetScene() const { return m_pScene.get(); }
 
 	private:
 	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h);
 
 	private:
-	vmath::vec3 m_camPos;
-	vmath::vec3 m_camDir;
-
-	vmath::mat4 m_cameraTransform;
+	Camera m_cam;
 
 	std::unique_ptr<const aiScene> m_pScene;
 	aiVector3D m_scene_min, m_scene_max, m_scene_center;

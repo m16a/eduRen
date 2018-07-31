@@ -22,24 +22,25 @@ static void error_callback(int error, const char* description)
 
 void checkKeys(MyDrawController& mdc, ImGuiIO& io)
 {
+		const float dt = 1.0f / ImGui::GetIO().Framerate;
 		if (io.KeysDown[GLFW_KEY_W])
-			mdc.OnKeyW();
+			mdc.OnKeyW(dt);
 		if (io.KeysDown[GLFW_KEY_S])
-			mdc.OnKeyS();
+			mdc.OnKeyS(dt);
 		if (io.KeysDown[GLFW_KEY_A])
-			mdc.OnKeyA();
+			mdc.OnKeyA(dt);
 		if (io.KeysDown[GLFW_KEY_D])
-			mdc.OnKeyD();
+			mdc.OnKeyD(dt);
 		if (io.KeysDown[GLFW_KEY_UP])
-			mdc.OnKeyUp();
+			mdc.OnKeyUp(dt);
 		if (io.KeysDown[GLFW_KEY_DOWN])
-			mdc.OnKeyDown();
+			mdc.OnKeyDown(dt);
 		if (io.KeysDown[GLFW_KEY_LEFT])
-			mdc.OnKeyLeft();
+			mdc.OnKeyLeft(dt);
 		if (io.KeysDown[GLFW_KEY_RIGHT])
-			mdc.OnKeyRight();
+			mdc.OnKeyRight(dt);
 		if (io.KeysDown[GLFW_KEY_SPACE])
-			mdc.OnKeySpace();
+			mdc.OnKeySpace(dt);
 }
 
 int main(int, char**)
@@ -99,8 +100,8 @@ int main(int, char**)
         // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets appears in a window automatically called "Debug".
         {
             static float f = 0.0f;
-						const vmath::vec3& cd = mdc.GetCamDir();
-            ImGui::Text("Cam dir %.2f %.2f %.2f", cd[0], cd[1], cd[2]);
+						const glm::vec3& camPos = mdc.GetCam().Position;
+            ImGui::Text("Cam dir %.2f %.2f %.2f", camPos[0], camPos[1], camPos[2]);
 						
 						unsigned int meshN = 0;
 						if (mdc.GetScene())

@@ -1,10 +1,12 @@
 #include "draw.h"
 
-#include <iostream>
-//#include "vgl.h"
 #include "LoadShaders.h"
 
-using namespace std;
+#include <iostream>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #define MAX_MESHES_COUNT 100
 
@@ -32,8 +34,8 @@ void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 
 void MyDrawController::Init(void)
 {
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
 	assert(res);
 
 	const unsigned int meshN = GetScene()->mNumMeshes;
@@ -73,9 +75,6 @@ void MyDrawController::Init(void)
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
 		
 		gMVP_Location = glGetUniformLocation(g_program, "MVP");
-		m_cameraTransform = vmath::translate(0.0f, 0.f, -2.5f);
-		m_camPos = vmath::vec3(0, 0, -3); 
-		m_camDir = vmath::vec3(1, 0, 0); 
 	}
 
 
@@ -122,8 +121,11 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
 		glBindVertexArray(VAOs[nd->mMeshes[i]]);
 		
-		vmath::mat4 mvp_matrix = vmath::perspective(60.f, float(w) / h, 0.001f, 10.f) * vmath::scale(1.0f, 1.0f, 1.0f) * m_cameraTransform;
-		glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, mvp_matrix);
+		glm::mat4 mvp_matrix = glm::perspective(glm::radians(60.f), float(w) / h, 0.001f, 10.f) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f)) * m_cam.GetViewMatrix();
+		//vmath::mat4 mvp_matrix = vmath::perspective(60.f, float(w) / h, 0.001f, 10.f) * vmath::scale(1.0f, 1.0f, 1.0f) * m_cameraTransform;
+
+
+		glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, &mvp_matrix[0][0]);
 		GLint size = 0;
 		glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
 		glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
@@ -140,68 +142,53 @@ void MyDrawController::Render(int w, int h)
 
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h);
 
-	/*
-	mvp_matrix = vmath::perspective(90.f,1.0f,0.1f,100.f) * vmath::scale(0.1f, 0.1f, 0.1f) * vmath::translate(0.0f, 0.f, -2.5f) *  vmath::translate(1.f, 0.f, 0.f) * vmath::rotate(30.f, 0.f, 1.f, 0.f) * vmath::rotate(30.f, 1.f, 0.f, 0.f);
-	glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, mvp_matrix);
-	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-	*/
 	glFlush();
 }
 
-static float s_transSpeed = 0.01;
+constexpr float kRotSpeed = 1.0f;
 
-void MyDrawController::OnKeyW()
+void MyDrawController::OnKeyW(float dt)
 {
-	m_cameraTransform *= vmath::translate(0.0f, 0.f, 0.01f);
+	m_cam.ProcessKeyboard(Camera_Movement::FORWARD, dt);
 }
 
-void MyDrawController::OnKeyS()
+void MyDrawController::OnKeyS(float dt)
 {
-	m_cameraTransform *= vmath::translate(0.0f, 0.f, -0.01f);
+	m_cam.ProcessKeyboard(Camera_Movement::BACKWARD, dt);
 }
 
-void MyDrawController::OnKeyA()
+void MyDrawController::OnKeyA(float dt)
 {
-	m_cameraTransform *= vmath::translate(-0.01f, 0.f, 0.f);
+	m_cam.ProcessKeyboard(Camera_Movement::LEFT, dt);
 }
 
-void MyDrawController::OnKeyD()
+void MyDrawController::OnKeyD(float dt)
 {
-	m_cameraTransform *= vmath::translate(0.01f, 0.f, 0.f);
+	m_cam.ProcessKeyboard(Camera_Movement::RIGHT, dt);
 }
 
-static float s_rotSpeed = 3;
-
-void MyDrawController::OnKeyUp()
+void MyDrawController::OnKeyUp(float dt)
 {
-	vmath::vec3 camRight = cross(m_camDir, vmath::vec3(0,0,1));
-	
-	vmath::vec4 tmp = vmath::vec4(m_camDir, 0.0f) * vmath::rotate(s_rotSpeed, camRight) ;
-	m_camDir = vmath::vec3(tmp[0], tmp[1], tmp[2]);
-	std::cout << m_camDir[0] << " " << m_camDir[1] << " " << m_camDir[2] << std::endl;
-
-	camRight = cross(m_camDir, vmath::vec3(0,0,1));
-	m_cameraTransform *= vmath::rotate(s_rotSpeed, camRight);
+	m_cam.ProcessMouseMovement(0.0f, kRotSpeed);
 }
 
-void MyDrawController::OnKeyDown()
+void MyDrawController::OnKeyDown(float dt)
 {
-	m_cameraTransform *= vmath::rotate(-s_rotSpeed, 1.0f, 0.f, 0.0f);
+	m_cam.ProcessMouseMovement(0.0f, -kRotSpeed);
 }
 
-void MyDrawController::OnKeyRight()
+void MyDrawController::OnKeyRight(float dt)
 {
-	m_cameraTransform *= vmath::rotate(s_rotSpeed, 0.0f, 1.f, 0.0f);
+	m_cam.ProcessMouseMovement(kRotSpeed, 0.0f);
 }
 
-void MyDrawController::OnKeyLeft()
+void MyDrawController::OnKeyLeft(float dt)
 {
-	m_cameraTransform *= vmath::rotate(-s_rotSpeed, 0.0f, 1.f, 0.0f);
+	m_cam.ProcessMouseMovement(-kRotSpeed, 0.0f);
 }
 
-void MyDrawController::OnKeySpace()
+void MyDrawController::OnKeySpace(float dt)
 {
-	m_cameraTransform = vmath::translate(0.0f, 0.f, -2.5f);
 }
 
 void get_bounding_box_for_node(const aiScene& scene, const aiNode* nd, aiVector3D* min,	aiVector3D* max, aiMatrix4x4* trafo)
@@ -258,9 +245,6 @@ bool MyDrawController::LoadScene(const char* path)
 		m_pScene.reset(p);
 
 		res = true;
-
-		
-	
 	}
 
 	return res;
