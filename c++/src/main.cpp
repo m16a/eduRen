@@ -104,9 +104,13 @@ int main(int, char**)
             ImGui::Text("Cam dir %.2f %.2f %.2f", camPos[0], camPos[1], camPos[2]);
 						
 						unsigned int meshN = 0;
+						unsigned int lightsN = 0;
 						if (mdc.GetScene())
+						{
 							meshN = mdc.GetScene()->mNumMeshes;
-            ImGui::Text("meshes:  %d", meshN);
+							lightsN = mdc.GetScene()->mNumLights;
+						}
+            ImGui::Text("meshes:%d, lights:%d", meshN, lightsN);
 
 						
 						ImGui::SliderInt("fov", &sFOV, 10, 90);
