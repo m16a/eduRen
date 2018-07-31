@@ -96,10 +96,10 @@ int main(int, char**)
         ImGui_ImplGlfwGL3_NewFrame();
 				checkKeys(mdc, io);
 
+        static int sFOV = 60;
         // 1. Show a simple window.
         // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets appears in a window automatically called "Debug".
         {
-            static float f = 0.0f;
 						const glm::vec3& camPos = mdc.GetCam().Position;
             ImGui::Text("Cam dir %.2f %.2f %.2f", camPos[0], camPos[1], camPos[2]);
 						
@@ -107,6 +107,9 @@ int main(int, char**)
 						if (mdc.GetScene())
 							meshN = mdc.GetScene()->mNumMeshes;
             ImGui::Text("meshes:  %d", meshN);
+
+						
+						ImGui::SliderInt("fov", &sFOV, 10, 90);
 
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         }
@@ -133,7 +136,7 @@ int main(int, char**)
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
 
-				mdc.Render(display_w, display_h);
+				mdc.Render(display_w, display_h, sFOV);
         ImGui::Render();
         glfwSwapBuffers(window);
     }

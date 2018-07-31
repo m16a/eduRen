@@ -11,7 +11,7 @@ class MyDrawController
 {
 	public:
 	void Init();
-	void Render(int w, int h);
+	void Render(int w, int h, int fov);
 
 	Camera& GetCam() { return m_cam;}
 	
@@ -31,7 +31,7 @@ class MyDrawController
 	const aiScene* GetScene() const { return m_pScene.get(); }
 
 	private:
-	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h);
+	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov);
 
 	private:
 	Camera m_cam;

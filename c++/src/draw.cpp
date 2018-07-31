@@ -107,7 +107,7 @@ void MyDrawController::Init(void)
 	*/
 }
 
-void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h)
+void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov)
 {
 	aiMatrix4x4 m = nd->mTransformation;
 
@@ -120,9 +120,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
 		glBindVertexArray(VAOs[nd->mMeshes[i]]);
 		
-		glm::mat4 mvp_matrix = glm::perspective(glm::radians(60.f), float(w) / h, 0.001f, 100.f) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f)) * m_cam.GetViewMatrix();
-		//vmath::mat4 mvp_matrix = vmath::perspective(60.f, float(w) / h, 0.001f, 10.f) * vmath::scale(1.0f, 1.0f, 1.0f) * m_cameraTransform;
-
+		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f)) * m_cam.GetViewMatrix();
 
 		glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, &mvp_matrix[0][0]);
 		GLint size = 0;
@@ -131,15 +129,15 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 	}
 
 	for (int i = 0; i < nd->mNumChildren; ++i) {
-		RecursiveRender(scene, nd->mChildren[i], w, h);
+		RecursiveRender(scene, nd->mChildren[i], w, h, fov);
 	}
 }
 
-void MyDrawController::Render(int w, int h)
+void MyDrawController::Render(int w, int h, int fov)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h);
+	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 
 	glFlush();
 }
