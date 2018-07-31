@@ -30,6 +30,8 @@ class MyDrawController
 	bool LoadScene(const char* path);
 	const aiScene* GetScene() const { return m_pScene.get(); }
 
+	static bool isWireMode;
+
 	private:
 	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov);
 

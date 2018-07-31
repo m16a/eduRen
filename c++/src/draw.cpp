@@ -10,6 +10,8 @@
 
 #define MAX_MESHES_COUNT 100
 
+bool MyDrawController::isWireMode = false;
+
 enum Buffer_IDs { ArrayBuffer, IndicesBuffer, NumBuffers };
 enum Attrib_IDs { vPosition = 0 };
 
@@ -149,7 +151,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 
 void MyDrawController::Render(int w, int h, int fov)
 {
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 
