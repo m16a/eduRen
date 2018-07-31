@@ -34,7 +34,8 @@ void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 
 void MyDrawController::Init(void)
 {
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
 	assert(res);
 
@@ -64,8 +65,6 @@ void MyDrawController::Init(void)
 
 		glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(vPosition);
-
-		printf("NumFaces: %d", pMesh->mNumFaces);
 
 		std::vector<unsigned int> elms;
 
@@ -121,7 +120,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
 		glBindVertexArray(VAOs[nd->mMeshes[i]]);
 		
-		glm::mat4 mvp_matrix = glm::perspective(glm::radians(60.f), float(w) / h, 0.001f, 10.f) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f)) * m_cam.GetViewMatrix();
+		glm::mat4 mvp_matrix = glm::perspective(glm::radians(60.f), float(w) / h, 0.001f, 100.f) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f)) * m_cam.GetViewMatrix();
 		//vmath::mat4 mvp_matrix = vmath::perspective(60.f, float(w) / h, 0.001f, 10.f) * vmath::scale(1.0f, 1.0f, 1.0f) * m_cameraTransform;
 
 
