@@ -23,14 +23,15 @@ static void error_callback(int error, const char* description)
 void checkKeys(MyDrawController& mdc, ImGuiIO& io)
 {
 		const float dt = 1.0f / ImGui::GetIO().Framerate;
+		const bool haste = io.KeyShift;
 		if (io.KeysDown[GLFW_KEY_W])
-			mdc.OnKeyW(dt);
+			mdc.OnKeyW(dt, haste);
 		if (io.KeysDown[GLFW_KEY_S])
-			mdc.OnKeyS(dt);
+			mdc.OnKeyS(dt, haste);
 		if (io.KeysDown[GLFW_KEY_A])
-			mdc.OnKeyA(dt);
+			mdc.OnKeyA(dt, haste);
 		if (io.KeysDown[GLFW_KEY_D])
-			mdc.OnKeyD(dt);
+			mdc.OnKeyD(dt, haste);
 		if (io.KeysDown[GLFW_KEY_UP])
 			mdc.OnKeyUp(dt);
 		if (io.KeysDown[GLFW_KEY_DOWN])

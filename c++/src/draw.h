@@ -21,10 +21,10 @@ class MyDrawController
 	void OnKeyRight(float dt);
 	void OnKeyLeft(float dt);
 
-	void OnKeyW(float dt);
-	void OnKeyS(float dt);
-	void OnKeyA(float dt);
-	void OnKeyD(float dt);
+	void OnKeyW(float dt, bool haste);
+	void OnKeyS(float dt, bool haste);
+	void OnKeyA(float dt, bool haste);
+	void OnKeyD(float dt, bool haste);
 	void OnKeySpace(float dt);
 
 	bool LoadScene(const char* path);

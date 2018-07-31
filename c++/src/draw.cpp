@@ -160,24 +160,24 @@ void MyDrawController::Render(int w, int h, int fov)
 
 constexpr float kRotSpeed = 1.0f;
 
-void MyDrawController::OnKeyW(float dt)
+void MyDrawController::OnKeyW(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::FORWARD, dt);
+	m_cam.ProcessKeyboard(Camera_Movement::FORWARD, dt, haste);
 }
 
-void MyDrawController::OnKeyS(float dt)
+void MyDrawController::OnKeyS(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::BACKWARD, dt);
+	m_cam.ProcessKeyboard(Camera_Movement::BACKWARD, dt, haste);
 }
 
-void MyDrawController::OnKeyA(float dt)
+void MyDrawController::OnKeyA(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::LEFT, dt);
+	m_cam.ProcessKeyboard(Camera_Movement::LEFT, dt, haste);
 }
 
-void MyDrawController::OnKeyD(float dt)
+void MyDrawController::OnKeyD(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::RIGHT, dt);
+	m_cam.ProcessKeyboard(Camera_Movement::RIGHT, dt, haste);
 }
 
 void MyDrawController::OnKeyUp(float dt)
