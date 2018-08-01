@@ -18,6 +18,9 @@ enum Attrib_IDs { vPosition = 0 };
 GLuint VAOs[MAX_MESHES_COUNT];
 GLuint EAOs[MAX_MESHES_COUNT];
 
+GLuint cubeVAO[1];
+GLuint cubeBuffers[2];
+
 GLuint Buffers[2 * MAX_MESHES_COUNT];
 
 GLuint gMVP_Location = 0;
@@ -34,6 +37,7 @@ inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 
     return to;
 }
+
 void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 {
 	for (int i = 0; i < mesh.mNumFaces; ++i)
@@ -43,6 +47,63 @@ void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 		res.push_back(mesh.mFaces[i].mIndices[1]);
 		res.push_back(mesh.mFaces[i].mIndices[2]);
 	}
+}
+
+void MyDrawController::InitLightModel()
+{
+	glGenVertexArrays(1, cubeVAO);
+	glGenBuffers(2, cubeBuffers);
+
+	glBindVertexArray(cubeVAO[0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, cubeBuffers[0]);		
+	size_t numVertices = 8;
+
+	GLfloat cubeVertices[numVertices][3] = {	
+			{ -0.5, -0.5, -0.5 },  // Vertex 0	
+			{  0.5, -0.5, -0.5 },  // Vertex 1	
+			{  0.5,  0.5, -0.5 },  // Vertex 2	
+			{ -0.5,  0.5, -0.5 },  // Vertex 3	
+			{ -0.5, -0.5,  0.5 },  // Vertex 4	
+			{  0.5, -0.5,  0.5 },  // Vertex 5	
+			{  0.5,  0.5,  0.5 },  // Vertex 6	
+			{ -0.5,  0.5,  0.5 }	 // Vertex 7
+	};
+
+	glBufferData(GL_ARRAY_BUFFER,	3 * numVertices * sizeof(GLfloat), cubeVertices, GL_STATIC_DRAW);
+	ShaderInfo shaders[] = {
+		{ GL_VERTEX_SHADER, "shaders/main.vert" },
+		{ GL_FRAGMENT_SHADER, "shaders/main.frag" },
+		{ GL_NONE, NULL }
+	};
+
+	g_program = LoadShaders(shaders);
+	glUseProgram(g_program);
+
+	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(vPosition);
+
+	//12 triangles * 3 verticies
+	GLint cubeIndices[36] = 
+	{
+		0, 1, 2,
+		0, 2, 3,
+		5, 4, 6,
+		4, 7, 6,
+		7, 3, 2,
+		6, 7, 2,
+		4, 1, 0,
+		4, 5, 1,
+		6, 2, 1,
+		5, 6, 1,
+		4, 0, 7,
+		3, 7, 0
+	};
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeBuffers[1]);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  36 * sizeof(GLint), cubeIndices, GL_STATIC_DRAW);
+		
+		gMVP_Location = glGetUniformLocation(g_program, "MVP");
 }
 
 void MyDrawController::Init(void)
@@ -88,45 +149,14 @@ void MyDrawController::Init(void)
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
 		
 		gMVP_Location = glGetUniformLocation(g_program, "MVP");
+
+		InitLightModel();
 	}
-
-
-	/*
-	GLfloat CubeVertices[NumVertices][3];
-
-	//12 triangles * 3 verticies
-	GLint CubeIndices[36];
-
-	ShaderInfo shaders[] = {
-		{ GL_VERTEX_SHADER, "shaders/main.vert" },
-		{ GL_FRAGMENT_SHADER, "shaders/main.frag" },
-		{ GL_NONE, NULL }
-	};
-
-	g_program = LoadShaders(shaders);
-	glUseProgram(g_program);
-
-	glVertexAttribPointer(vPosition, 3, GL_FLOAT,
-							GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(vPosition);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffers[IndicesBuffer]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices),
-				CubeIndices, GL_STATIC_DRAW);
-
-	gMVP_Location = glGetUniformLocation(g_program, "MVP");
-	m_cameraTransform = vmath::translate(0.0f, 0.f, -2.5f);
-	m_camPos = vmath::vec3(0, 0, -1); 
-	m_camDir = vmath::vec3(1, 0, 0); 
-	*/
 }
 
 void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov)
 {
 	aiMatrix4x4 m = nd->mTransformation;
-
-	//aiTransposeMatrix4(&m);
-
 	glm::mat4 t = aiMatrix4x4ToGlm(&m);
 
 	for (int i=0; i < nd->mNumMeshes; ++i) 
@@ -154,6 +184,29 @@ void MyDrawController::Render(int w, int h, int fov)
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
+	
+	glBindVertexArray(cubeVAO[0]);
+
+	//draw lights
+	for (int i =0; i < m_pScene->mNumLights; ++i)
+	{
+		const aiLight& light= *m_pScene->mLights[i];
+
+		assert(light.mType == aiLightSource_POINT);
+		aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
+		assert(pLightNode);
+
+		aiMatrix4x4 m = pLightNode->mTransformation;
+		glm::mat4 t = aiMatrix4x4ToGlm(&m);
+
+		glm::mat4 scale = glm::translate(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * m_cam.GetViewMatrix() * t * scale;
+
+		glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, &mvp_matrix[0][0]);
+		GLint size = 0;
+		glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+		glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
+	}
 
 	glFlush();
 }

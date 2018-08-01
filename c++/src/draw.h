@@ -30,6 +30,8 @@ class MyDrawController
 	bool LoadScene(const char* path);
 	const aiScene* GetScene() const { return m_pScene.get(); }
 
+	void InitLightModel();
+
 	static bool isWireMode;
 
 	private:
