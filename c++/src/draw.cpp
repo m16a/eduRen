@@ -24,7 +24,12 @@ GLuint cubeBuffers[2];
 GLuint Buffers[2 * MAX_MESHES_COUNT];
 
 GLuint gMVP_Location = 0;
-GLuint g_program = 0;
+
+enum ProgramId {Main, Light, NumPrograms};
+GLuint gPrograms[ProgramId::NumPrograms];
+
+enum UniformsId {MainMVP, LightMVP, LightColor, NumUniformsId};
+GLuint gUniforms[UniformsId::NumUniformsId];
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
@@ -73,12 +78,12 @@ void MyDrawController::InitLightModel()
 	glBufferData(GL_ARRAY_BUFFER,	3 * numVertices * sizeof(GLfloat), cubeVertices, GL_STATIC_DRAW);
 	ShaderInfo shaders[] = {
 		{ GL_VERTEX_SHADER, "shaders/main.vert" },
-		{ GL_FRAGMENT_SHADER, "shaders/main.frag" },
+		{ GL_FRAGMENT_SHADER, "shaders/light.frag" },
 		{ GL_NONE, NULL }
 	};
 
-	g_program = LoadShaders(shaders);
-	glUseProgram(g_program);
+	gPrograms[ProgramId::Light] = LoadShaders(shaders);
+	glUseProgram(gPrograms[ProgramId::Light]);
 
 	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition);
@@ -103,7 +108,8 @@ void MyDrawController::InitLightModel()
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeBuffers[1]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  36 * sizeof(GLint), cubeIndices, GL_STATIC_DRAW);
 		
-		gMVP_Location = glGetUniformLocation(g_program, "MVP");
+		gUniforms[UniformsId::LightMVP] = glGetUniformLocation(gPrograms[ProgramId::Light], "MVP");
+		gUniforms[UniformsId::LightColor] = glGetUniformLocation(gPrograms[ProgramId::Light], "lightColor");
 }
 
 void MyDrawController::Init(void)
@@ -135,8 +141,8 @@ void MyDrawController::Init(void)
 		{ GL_NONE, NULL }
 	};
 
-		g_program = LoadShaders(shaders);
-		glUseProgram(g_program);
+		gPrograms[ProgramId::Main] = LoadShaders(shaders);
+		glUseProgram(gPrograms[ProgramId::Main]);
 
 		glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(vPosition);
@@ -148,7 +154,7 @@ void MyDrawController::Init(void)
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffers[i*2+1]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
 		
-		gMVP_Location = glGetUniformLocation(g_program, "MVP");
+		gUniforms[UniformsId::MainMVP] = glGetUniformLocation(gPrograms[ProgramId::Main], "MVP");
 
 		InitLightModel();
 	}
@@ -168,7 +174,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		
 		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * m_cam.GetViewMatrix() * t;
 
-		glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, &mvp_matrix[0][0]);
+		glUniformMatrix4fv(gUniforms[UniformsId::MainMVP], 1, GL_FALSE, &mvp_matrix[0][0]);
 		GLint size = 0;
 		glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
 		glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
@@ -183,11 +189,13 @@ void MyDrawController::Render(int w, int h, int fov)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
+	glUseProgram(gPrograms[ProgramId::Main]);
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 	
-	glBindVertexArray(cubeVAO[0]);
-
 	//draw lights
+	glBindVertexArray(cubeVAO[0]);
+	glUseProgram(gPrograms[ProgramId::Light]);
+
 	for (int i =0; i < m_pScene->mNumLights; ++i)
 	{
 		const aiLight& light= *m_pScene->mLights[i];
@@ -199,10 +207,20 @@ void MyDrawController::Render(int w, int h, int fov)
 		aiMatrix4x4 m = pLightNode->mTransformation;
 		glm::mat4 t = aiMatrix4x4ToGlm(&m);
 
-		glm::mat4 scale = glm::translate(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * m_cam.GetViewMatrix() * t * scale;
+		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * m_cam.GetViewMatrix() * t * scale ;
+		
+		aiColor3D diffCol = light.mColorDiffuse;	
+		//printf("------\n");
+		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
 
-		glUniformMatrix4fv(gMVP_Location, 1, GL_FALSE, &mvp_matrix[0][0]);
+		//diffCol = light.mColorSpecular;
+		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
+		//diffCol = light.mColorAmbient;
+		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
+
+		glUniform3fv(gUniforms[UniformsId::LightColor], 1, &diffCol[0]);
+		glUniformMatrix4fv(gUniforms[UniformsId::LightMVP], 1, GL_FALSE, &mvp_matrix[0][0]);
 		GLint size = 0;
 		glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
 		glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
