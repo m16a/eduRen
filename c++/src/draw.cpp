@@ -27,7 +27,7 @@ GLuint NormalBuffers[MAX_MESHES_COUNT];
 enum ProgramId {Main, Light, NumPrograms};
 GLuint gPrograms[ProgramId::NumPrograms];
 
-enum UniformsId {MainModel, MainView, MainProj, MainLightPos, MainLightCol, LightMVP, LightColor, NumUniformsId};
+enum UniformsId {MainModel, MainView, MainProj, MainLightPos, MainLightCol, MainCamPos, LightMVP, LightColor, NumUniformsId};
 GLuint gUniforms[UniformsId::NumUniformsId];
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
@@ -166,6 +166,7 @@ void MyDrawController::Init(void)
 
 		gUniforms[UniformsId::MainLightPos] = glGetUniformLocation(gPrograms[ProgramId::Main], "lightPos");
 		gUniforms[UniformsId::MainLightCol] = glGetUniformLocation(gPrograms[ProgramId::Main], "lightCol");
+		gUniforms[UniformsId::MainCamPos] = glGetUniformLocation(gPrograms[ProgramId::Main], "camPos");
 
 		InitLightModel();
 	}
@@ -189,7 +190,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		glUniformMatrix4fv(gUniforms[UniformsId::MainModel], 1, GL_FALSE, &model[0][0]);
 		glUniformMatrix4fv(gUniforms[UniformsId::MainView], 1, GL_FALSE, &view[0][0]);
 		glUniformMatrix4fv(gUniforms[UniformsId::MainProj], 1, GL_FALSE, &proj[0][0]);
-
+		glUniform3fv(gUniforms[UniformsId::MainCamPos], 1, &m_cam.Position[0]);
 
 		{
 			for (int i =0; i < m_pScene->mNumLights; ++i)

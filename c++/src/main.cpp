@@ -142,6 +142,9 @@ int main(int, char**)
 				glEnable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+				glEnable(GL_CULL_FACE); // cull face
+				glCullFace(GL_BACK); // cull back face
+
 				mdc.Render(display_w, display_h, sFOV);
         ImGui::Render();
         glfwSwapBuffers(window);
