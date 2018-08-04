@@ -102,8 +102,9 @@ void MyDrawController::InitLightModel()
 
 void MyDrawController::Init(void)
 {
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.dae");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.dae");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
 	assert(res);
@@ -168,22 +169,44 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		mainShader->setMat4("proj", proj);
 		mainShader->setVec3("camPos", m_cam.Position);
 
+		//light setup
+		for (int i =0; i < m_pScene->mNumLights; ++i)
 		{
-			for (int i =0; i < m_pScene->mNumLights; ++i)
-			{
-				const aiLight& light= *m_pScene->mLights[i];
+			const aiLight& light= *m_pScene->mLights[i];
 
-				assert(light.mType == aiLightSource_POINT);
-				aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
-				assert(pLightNode);
+			assert(light.mType == aiLightSource_POINT);
+			aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
+			assert(pLightNode);
 
-				aiMatrix4x4 m = pLightNode->mTransformation;
-				glm::mat4 t = aiMatrix4x4ToGlm(&m);
-				mainShader->setVec3("lightPos", glm::vec3(t[3]));
+			aiMatrix4x4 m = pLightNode->mTransformation;
+			glm::mat4 t = aiMatrix4x4ToGlm(&m);
+			mainShader->setVec3("lightPos", glm::vec3(t[3]));
 
-				aiColor3D diffCol = light.mColorDiffuse;	
-				mainShader->setVec3("lightCol", glm::vec3(diffCol[0], diffCol[1], diffCol[2]));
-			}
+			aiColor3D diffCol = light.mColorDiffuse;	
+			mainShader->setVec3("lightCol", glm::vec3(diffCol[0], diffCol[1], diffCol[2]));
+		}
+
+		//material setup
+		if (m_pScene->mNumMaterials)
+		{
+			unsigned int matIndx = mesh->mMaterialIndex;
+			//std::cout << "matIndx: " << matIndx << std::endl;
+			const aiMaterial& mat = *m_pScene->mMaterials[matIndx];
+
+			aiColor3D col;
+
+			if (!mat.Get(AI_MATKEY_COLOR_AMBIENT, col))
+				mainShader->setVec3("material.ambient", col[0], col[1], col[2]);
+
+			if (!mat.Get(AI_MATKEY_COLOR_DIFFUSE, col))
+				mainShader->setVec3("material.diffuse", col[0], col[1], col[2]);
+
+			if (!mat.Get(AI_MATKEY_COLOR_SPECULAR, col))
+				mainShader->setVec3("material.specular", col[0], col[1], col[2]);
+
+			float shininess; 
+			if (!mat.Get(AI_MATKEY_SHININESS, shininess))
+				mainShader->setFloat("material.shininess", shininess);
 		}
 
 		GLint size = 0;
