@@ -25,8 +25,9 @@ void main()
 	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16);
 	vec3 specular = specularStrength  * spec * lightCol;
 
-	//vec3 finalCol =  (specular) * vec3(1.0, 0.0, 0.0);
-	vec3 finalCol =  (diffuse + specular) * vec3(0.9, 0.9, 0.9);
+	//vec3 finalCol =  (specular) * vec3(1.0, 1.0, 1.0);
+	vec3 finalCol =  (diffuse + specular) * vec3(1.0, 1.0, 1.0);
 	fColor = vec4( finalCol, 1.0);
+
 	//fColor = vec4( norm, 1.0 );
 }

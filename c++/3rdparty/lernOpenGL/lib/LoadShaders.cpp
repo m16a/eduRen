@@ -89,7 +89,9 @@ LoadShaders( ShaderInfo* shaders )
 
             GLchar* log = new GLchar[len+1];
             glGetShaderInfoLog( shader, len, &len, log );
+            std::cerr << "file: " << entry->filename << std::endl;
             std::cerr << "Shader compilation failed: " << log << std::endl;
+						exit(1);
             delete [] log;
 #endif /* DEBUG */
 
@@ -121,6 +123,7 @@ LoadShaders( ShaderInfo* shaders )
         GLchar* log = new GLchar[len+1];
         glGetProgramInfoLog( program, len, &len, log );
         std::cerr << "Shader linking failed: " << log << std::endl;
+				exit(1);
         delete [] log;
 #endif /* DEBUG */
 
