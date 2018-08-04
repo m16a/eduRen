@@ -7,6 +7,7 @@
 #include "imgui_impl_glfw_gl3.h"
 #include <stdio.h>
 #include <iostream>
+#include <vector>
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
 #include "draw.h"
@@ -15,6 +16,10 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#include <ctime>
+#include <chrono>
+#include <ratio>
+
 static void error_callback(int error, const char* description)
 {
     fprintf(stderr, "Error %d: %s\n", error, description);
@@ -22,7 +27,7 @@ static void error_callback(int error, const char* description)
 
 void checkKeys(MyDrawController& mdc, ImGuiIO& io)
 {
-		const float dt = 1.0f / ImGui::GetIO().Framerate;
+		const float dt = ImGui::GetIO().DeltaTime;
 		const bool haste = io.KeyShift;
 		if (io.KeysDown[GLFW_KEY_W])
 			mdc.OnKeyW(dt, haste);
@@ -46,6 +51,7 @@ void checkKeys(MyDrawController& mdc, ImGuiIO& io)
 
 int main(int, char**)
 {
+		using namespace std::chrono;
     // Setup window
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
@@ -82,6 +88,12 @@ int main(int, char**)
 		stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE,"assimp_log.txt");
 		aiAttachLogStream(&stream);
 
+		const size_t kFPScnt = 100;
+		std::vector<float> fpss;
+		fpss.reserve(kFPScnt);
+
+		duration<float> timeSpan;
+		bool clamp60FPS = true;
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -92,6 +104,7 @@ int main(int, char**)
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
 				//std::cout << "WCK: " << io.WantCaptureKeyboard << std::endl;
+				high_resolution_clock::time_point start = high_resolution_clock::now();
 
         glfwPollEvents();
         ImGui_ImplGlfwGL3_NewFrame();
@@ -117,6 +130,19 @@ int main(int, char**)
 						ImGui::SliderInt("fov", &sFOV, 10, 90);
 
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::Text("Real time %.2f/%.2f/%.2f ms",
+												*(std::min_element(fpss.begin(), fpss.end())) * 1000.0f,
+												 std::accumulate(fpss.begin(), fpss.end(), 0.0f) / fpss.size() * 1000.0f,
+												*(std::max_element(fpss.begin(), fpss.end())) * 1000.0f);
+
+						if (fpss.size() > kFPScnt)
+							fpss.erase(fpss.begin());
+
+						//fpss.push_back(ImGui::GetIO().DeltaTime);
+						fpss.push_back(timeSpan.count());
+
+						ImGui::PlotLines("Frame ms", fpss.data(), fpss.size(), 0, nullptr, 0.0f, 0.010, ImVec2(0, 80));
+						ImGui::Checkbox("Clamp 60 FPS", &clamp60FPS);	
         }
 
         // 2. Show another simple window. In most cases you will use an explicit Begin/End pair to name the window.
@@ -146,8 +172,25 @@ int main(int, char**)
 				glCullFace(GL_BACK); // cull back face
 
 				mdc.Render(display_w, display_h, sFOV);
+
         ImGui::Render();
         glfwSwapBuffers(window);
+
+				high_resolution_clock::time_point end = high_resolution_clock::now();
+
+				timeSpan = duration_cast<duration<float>>(end - start);
+
+				if (clamp60FPS)
+				{
+					float secLeft = 1.0f / 60 - timeSpan.count();
+					if (secLeft > 0)
+					{
+						struct timespec t, empty;
+						t.tv_sec = 0;
+						t.tv_nsec = secLeft * 1e9f; 
+						nanosleep(&t, &empty);
+					}
+				}
     }
 
     // Cleanup

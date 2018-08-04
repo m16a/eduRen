@@ -27,6 +27,7 @@ void main()
 
 	//vec3 finalCol =  (specular) * vec3(1.0, 1.0, 1.0);
 	vec3 finalCol =  (diffuse + specular) * vec3(1.0, 1.0, 1.0);
+	//vec3 finalCol =  (diffuse) * vec3(1.0, 1.0, 1.0);
 	fColor = vec4( finalCol, 1.0);
 
 	//fColor = vec4( norm, 1.0 );

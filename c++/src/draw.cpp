@@ -268,7 +268,7 @@ void MyDrawController::Render(int w, int h, int fov)
 	glFlush();
 }
 
-constexpr float kRotSpeed = 1.0f;
+constexpr float kRotSpeed = 1000.0f;
 
 void MyDrawController::OnKeyW(float dt, bool haste)
 {
@@ -292,22 +292,22 @@ void MyDrawController::OnKeyD(float dt, bool haste)
 
 void MyDrawController::OnKeyUp(float dt)
 {
-	m_cam.ProcessMouseMovement(0.0f, kRotSpeed);
+	m_cam.ProcessMouseMovement(0.0f, kRotSpeed * dt);
 }
 
 void MyDrawController::OnKeyDown(float dt)
 {
-	m_cam.ProcessMouseMovement(0.0f, -kRotSpeed);
+	m_cam.ProcessMouseMovement(0.0f, -kRotSpeed * dt);
 }
 
 void MyDrawController::OnKeyRight(float dt)
 {
-	m_cam.ProcessMouseMovement(kRotSpeed, 0.0f);
+	m_cam.ProcessMouseMovement(kRotSpeed * dt, 0.0f);
 }
 
 void MyDrawController::OnKeyLeft(float dt)
 {
-	m_cam.ProcessMouseMovement(-kRotSpeed, 0.0f);
+	m_cam.ProcessMouseMovement(-kRotSpeed * dt, 0.0f);
 }
 
 void MyDrawController::OnKeySpace(float dt)
