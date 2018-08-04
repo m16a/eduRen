@@ -119,12 +119,14 @@ int main(int, char**)
 						
 						unsigned int meshN = 0;
 						unsigned int lightsN = 0;
+						unsigned int materialsN = 0;
 						if (mdc.GetScene())
 						{
 							meshN = mdc.GetScene()->mNumMeshes;
 							lightsN = mdc.GetScene()->mNumLights;
+							materialsN = mdc.GetScene()->mNumMaterials;
 						}
-            ImGui::Text("meshes:%d, lights:%d", meshN, lightsN);
+            ImGui::Text("meshes:%d, lights:%d, materials:%d", meshN, lightsN, materialsN);
 
 						ImGui::Checkbox("wire mode", &MyDrawController::isWireMode);	
 						ImGui::SliderInt("fov", &sFOV, 10, 90);

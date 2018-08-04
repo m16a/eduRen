@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.6.3)
 
 set (CMAKE_CXX_STANDARD 14)
 
-SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -D_DEBUG" )
-
 set(SOURCES 
 	main.cpp
 	draw.cpp
@@ -12,7 +10,6 @@ set(SOURCES
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui_draw.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui_impl_glfw_gl3.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/libs/gl3w/GL/gl3w.c
-	${CMAKE_SOURCE_DIR}/3rdparty/lernOpenGL/lib/LoadShaders.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/lernOpenGL/lib/targa.cpp
 	)
 

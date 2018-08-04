@@ -1,6 +1,6 @@
 #include "draw.h"
 
-#include "LoadShaders.h"
+#include "shader.h"
 
 #include <iostream>
 #include <glm/vec3.hpp>
@@ -24,11 +24,8 @@ GLuint cubeBuffers[2];
 GLuint Buffers[2 * MAX_MESHES_COUNT];
 GLuint NormalBuffers[MAX_MESHES_COUNT];
 
-enum ProgramId {Main, Light, NumPrograms};
-GLuint gPrograms[ProgramId::NumPrograms];
-
-enum UniformsId {MainModel, MainView, MainProj, MainLightPos, MainLightCol, MainCamPos, LightMVP, LightColor, NumUniformsId};
-GLuint gUniforms[UniformsId::NumUniformsId];
+Shader* mainShader = nullptr;
+Shader* lightModelShader = nullptr;
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
@@ -75,14 +72,8 @@ void MyDrawController::InitLightModel()
 	};
 
 	glBufferData(GL_ARRAY_BUFFER,	3 * numVertices * sizeof(GLfloat), cubeVertices, GL_STATIC_DRAW);
-	ShaderInfo shaders[] = {
-		{ GL_VERTEX_SHADER, "shaders/light.vert" },
-		{ GL_FRAGMENT_SHADER, "shaders/light.frag" },
-		{ GL_NONE, NULL }
-	};
 
-	gPrograms[ProgramId::Light] = LoadShaders(shaders);
-	glUseProgram(gPrograms[ProgramId::Light]);
+	lightModelShader = new Shader("shaders/light.vert", "shaders/light.frag");
 
 	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition);
@@ -107,8 +98,6 @@ void MyDrawController::InitLightModel()
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeBuffers[1]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  36 * sizeof(GLint), cubeIndices, GL_STATIC_DRAW);
 		
-		gUniforms[UniformsId::LightMVP] = glGetUniformLocation(gPrograms[ProgramId::Light], "MVP");
-		gUniforms[UniformsId::LightColor] = glGetUniformLocation(gPrograms[ProgramId::Light], "lightColor");
 }
 
 void MyDrawController::Init(void)
@@ -135,14 +124,8 @@ void MyDrawController::Init(void)
 		glBindBuffer(GL_ARRAY_BUFFER, Buffers[i*2]);
 		glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(aiVector3D), pMesh->mVertices, GL_STATIC_DRAW);
 
-	ShaderInfo shaders[] = {
-		{ GL_VERTEX_SHADER, "shaders/main.vert" },
-		{ GL_FRAGMENT_SHADER, "shaders/main.frag" },
-		{ GL_NONE, NULL }
-	};
 
-		gPrograms[ProgramId::Main] = LoadShaders(shaders);
-		glUseProgram(gPrograms[ProgramId::Main]);
+		mainShader = new Shader("shaders/main.vert", "shaders/main.frag");
 
 		glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(vPosition);
@@ -160,13 +143,6 @@ void MyDrawController::Init(void)
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffers[i*2+1]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
 		
-		gUniforms[UniformsId::MainModel] = glGetUniformLocation(gPrograms[ProgramId::Main], "model");
-		gUniforms[UniformsId::MainView] = glGetUniformLocation(gPrograms[ProgramId::Main], "view");
-		gUniforms[UniformsId::MainProj] = glGetUniformLocation(gPrograms[ProgramId::Main], "proj");
-
-		gUniforms[UniformsId::MainLightPos] = glGetUniformLocation(gPrograms[ProgramId::Main], "lightPos");
-		gUniforms[UniformsId::MainLightCol] = glGetUniformLocation(gPrograms[ProgramId::Main], "lightCol");
-		gUniforms[UniformsId::MainCamPos] = glGetUniformLocation(gPrograms[ProgramId::Main], "camPos");
 
 		InitLightModel();
 	}
@@ -187,10 +163,10 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		glm::mat4 proj = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f);
 		glm::mat4 view = m_cam.GetViewMatrix();
 
-		glUniformMatrix4fv(gUniforms[UniformsId::MainModel], 1, GL_FALSE, &model[0][0]);
-		glUniformMatrix4fv(gUniforms[UniformsId::MainView], 1, GL_FALSE, &view[0][0]);
-		glUniformMatrix4fv(gUniforms[UniformsId::MainProj], 1, GL_FALSE, &proj[0][0]);
-		glUniform3fv(gUniforms[UniformsId::MainCamPos], 1, &m_cam.Position[0]);
+		mainShader->setMat4("model", model);
+		mainShader->setMat4("view", view);
+		mainShader->setMat4("proj", proj);
+		mainShader->setVec3("camPos", m_cam.Position);
 
 		{
 			for (int i =0; i < m_pScene->mNumLights; ++i)
@@ -203,11 +179,10 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 
 				aiMatrix4x4 m = pLightNode->mTransformation;
 				glm::mat4 t = aiMatrix4x4ToGlm(&m);
-
-				glUniform3fv(gUniforms[UniformsId::MainLightPos], 1, (GLfloat*)&t[3]);
+				mainShader->setVec3("lightPos", glm::vec3(t[3]));
 
 				aiColor3D diffCol = light.mColorDiffuse;	
-				glUniform3fv(gUniforms[UniformsId::MainLightCol], 1, &diffCol[0]);
+				mainShader->setVec3("lightCol", glm::vec3(diffCol[0], diffCol[1], diffCol[2]));
 			}
 		}
 
@@ -226,12 +201,12 @@ void MyDrawController::Render(int w, int h, int fov)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
-	glUseProgram(gPrograms[ProgramId::Main]);
+	mainShader->use();
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 	
 	//draw lights
 	glBindVertexArray(cubeVAO[0]);
-	glUseProgram(gPrograms[ProgramId::Light]);
+	lightModelShader->use();
 
 	for (int i =0; i < m_pScene->mNumLights; ++i)
 	{
@@ -256,9 +231,8 @@ void MyDrawController::Render(int w, int h, int fov)
 		//diffCol = light.mColorAmbient;
 		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
 
-		glUniform3fv(gUniforms[UniformsId::LightColor], 1, &diffCol[0]);
-
-		glUniformMatrix4fv(gUniforms[UniformsId::LightMVP], 1, GL_FALSE, &mvp_matrix[0][0]);
+		lightModelShader->setVec3("lightColor", diffCol[0], diffCol[1], diffCol[2]);
+		lightModelShader->setMat4("MVP", mvp_matrix);
 
 		GLint size = 0;
 		glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
