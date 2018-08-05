@@ -33,6 +33,9 @@ class MyDrawController
 	void InitLightModel();
 
 	static bool isWireMode;
+	static bool isAmbient;
+	static bool isDiffuse;
+	static bool isSpecular;
 
 	private:
 	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov);

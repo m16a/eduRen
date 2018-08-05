@@ -11,6 +11,9 @@
 #define MAX_MESHES_COUNT 100
 
 bool MyDrawController::isWireMode = false;
+bool MyDrawController::isAmbient = true;
+bool MyDrawController::isDiffuse = true;
+bool MyDrawController::isSpecular = true;
 
 enum Buffer_IDs { ArrayBuffer, IndicesBuffer, NumBuffers };
 enum Attrib_IDs { vPosition = 0, vNormals = 1 };
@@ -180,10 +183,33 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 
 			aiMatrix4x4 m = pLightNode->mTransformation;
 			glm::mat4 t = aiMatrix4x4ToGlm(&m);
-			mainShader->setVec3("lightPos", glm::vec3(t[3]));
 
-			aiColor3D diffCol = light.mColorDiffuse;	
-			mainShader->setVec3("lightCol", glm::vec3(diffCol[0], diffCol[1], diffCol[2]));
+			char buff[100];
+			snprintf(buff, sizeof(buff), "pointLights[%d].", i);
+			std::string lightI(buff); 
+			mainShader->setVec3(lightI + "pos", glm::vec3(t[3]));
+
+			aiColor3D tmp = light.mColorAmbient;
+
+			if (isAmbient)
+				//mainShader->setVec3(lightI + "ambient", tmp[0], tmp[1], tmp[2]);
+				mainShader->setVec3(lightI + "ambient", 0.2, 0.2, 0.2);
+			else
+				mainShader->setVec3(lightI + "ambient", glm::vec3());
+			
+			tmp = light.mColorDiffuse;	
+			if (isDiffuse)
+				mainShader->setVec3(lightI + "diffuse", tmp[0], tmp[1], tmp[2]);
+			else
+				mainShader->setVec3(lightI + "diffuse", glm::vec3());
+			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
+
+			tmp = light.mColorSpecular;
+			if (isSpecular)
+				mainShader->setVec3(lightI + "specular", tmp[0], tmp[1], tmp[2]);
+			else
+				mainShader->setVec3(lightI + "specular", glm::vec3());
+			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
 		}
 
 		//material setup
@@ -245,16 +271,10 @@ void MyDrawController::Render(int w, int h, int fov)
 		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
 		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * m_cam.GetViewMatrix() * t * scale;
 		
-		aiColor3D diffCol = light.mColorDiffuse;	
-		//printf("------\n");
-		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
+		aiColor3D tmp = light.mColorDiffuse;	
+		lightModelShader->setVec3("lightColor", tmp[0], tmp[1], tmp[2]);
+		//printf("%.1f %.1f %.1f\n", tmp[0], tmp[1], tmp[2] );
 
-		//diffCol = light.mColorSpecular;
-		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
-		//diffCol = light.mColorAmbient;
-		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
-
-		lightModelShader->setVec3("lightColor", diffCol[0], diffCol[1], diffCol[2]);
 		lightModelShader->setMat4("MVP", mvp_matrix);
 
 		GLint size = 0;

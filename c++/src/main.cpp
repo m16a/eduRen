@@ -128,6 +128,9 @@ int main(int, char**)
 						}
             ImGui::Text("meshes:%d, lights:%d, materials:%d", meshN, lightsN, materialsN);
 
+						ImGui::Checkbox("ambient", &MyDrawController::isAmbient);	ImGui::SameLine(100);
+						ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);	ImGui::SameLine(200);
+						ImGui::Checkbox("specular", &MyDrawController::isSpecular);	
 						ImGui::Checkbox("wire mode", &MyDrawController::isWireMode);	
 						ImGui::SliderInt("fov", &sFOV, 10, 90);
 
