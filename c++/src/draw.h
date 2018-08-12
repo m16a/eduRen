@@ -6,6 +6,8 @@
 #include <GL/gl3w.h>
 
 #include <memory>
+#include <map>
+#include <string>
 
 class MyDrawController
 {
@@ -27,8 +29,10 @@ class MyDrawController
 	void OnKeyD(float dt, bool haste);
 	void OnKeySpace(float dt);
 
-	bool LoadScene(const char* path);
+	bool LoadScene(const std::string& path);
 	const aiScene* GetScene() const { return m_pScene.get(); }
+	void InitTextures(const aiScene& scene);
+	void LoadTextureForMaterial(const aiMaterial& mat);
 
 	void InitLightModel();
 
@@ -45,4 +49,6 @@ class MyDrawController
 
 	std::unique_ptr<const aiScene> m_pScene;
 	aiVector3D m_scene_min, m_scene_max, m_scene_center;
+	std::map<std::string, GLuint> m_texturePathToID;
+	std::string m_dirPath;
 };

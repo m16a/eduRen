@@ -120,13 +120,15 @@ int main(int, char**)
 						unsigned int meshN = 0;
 						unsigned int lightsN = 0;
 						unsigned int materialsN = 0;
+						unsigned int texturesN = 0;
 						if (mdc.GetScene())
 						{
 							meshN = mdc.GetScene()->mNumMeshes;
 							lightsN = mdc.GetScene()->mNumLights;
 							materialsN = mdc.GetScene()->mNumMaterials;
+							texturesN = mdc.GetScene()->mNumTextures;
 						}
-            ImGui::Text("meshes:%d, lights:%d, materials:%d", meshN, lightsN, materialsN);
+            ImGui::Text("meshes:%d, lights:%d, materials:%d, embededTextures:%d", meshN, lightsN, materialsN, texturesN);
 
 						ImGui::Checkbox("ambient", &MyDrawController::isAmbient);	ImGui::SameLine(100);
 						ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);	ImGui::SameLine(200);

@@ -2,6 +2,7 @@
 
 in vec3 Normal;
 in vec3 FragPos;
+in vec2 TexCoords;
 
 struct PointLight
 {
@@ -29,6 +30,8 @@ struct Material
 
 uniform Material material;
 
+uniform sampler2D textureDiffuse;
+
 out vec4 fColor;
 
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
@@ -46,8 +49,10 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
   			     light.quadratic * (distance * distance));    
 		*/
     // combine results
-    vec3 ambient  = light.ambient  * material.diffuse;
-    vec3 diffuse  = light.diffuse * diff * material.diffuse;
+		vec3 ambient  = light.ambient  * material.diffuse;
+    //vec3 ambient  = light.ambient  * texture(textureDiffuse, TexCoords).rgb;
+    //vec3 diffuse  = light.diffuse * diff * (material.diffuse + texture(textureDiffuse, TexCoords).rgb);
+    vec3 diffuse = light.diffuse * texture(textureDiffuse, TexCoords).rgb;
     vec3 specular = light.specular * spec * material.specular;
 
 		/*

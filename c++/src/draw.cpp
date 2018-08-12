@@ -7,6 +7,8 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #define MAX_MESHES_COUNT 100
 
@@ -16,7 +18,7 @@ bool MyDrawController::isDiffuse = true;
 bool MyDrawController::isSpecular = true;
 
 enum Buffer_IDs { ArrayBuffer, IndicesBuffer, NumBuffers };
-enum Attrib_IDs { vPosition = 0, vNormals = 1 };
+enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
 GLuint VAOs[MAX_MESHES_COUNT];
 GLuint EAOs[MAX_MESHES_COUNT];
@@ -24,11 +26,14 @@ GLuint EAOs[MAX_MESHES_COUNT];
 GLuint cubeVAO[1];
 GLuint cubeBuffers[2];
 
-GLuint Buffers[2 * MAX_MESHES_COUNT];
+GLuint Buffers[2 * MAX_MESHES_COUNT]; // vertices + elements
 GLuint NormalBuffers[MAX_MESHES_COUNT];
+GLuint TextCoordBuffers[MAX_MESHES_COUNT];
 
 Shader* mainShader = nullptr;
 Shader* lightModelShader = nullptr;
+
+std::vector<GLuint> texturesID;
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
@@ -42,6 +47,47 @@ inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
     return to;
 }
 
+unsigned int TextureFromFile(const char *path, const std::string &directory)
+{
+	std::string filename = std::string(path);
+	filename = directory + '/' + filename;
+
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+
+	int width, height, nrComponents;
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+	if (data)
+	{
+			GLenum format;
+			if (nrComponents == 1)
+					format = GL_RED;
+			else if (nrComponents == 3)
+					format = GL_RGB;
+			else if (nrComponents == 4)
+					format = GL_RGBA;
+
+			glBindTexture(GL_TEXTURE_2D, textureID);
+			glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+			glGenerateMipmap(GL_TEXTURE_2D);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+			stbi_image_free(data);
+	}
+	else
+	{
+			std::cout << "Texture failed to load at path: " << path << std::endl;
+			stbi_image_free(data);
+	}
+
+	return textureID;
+}
+
 void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 {
 	for (int i = 0; i < mesh.mNumFaces; ++i)
@@ -50,6 +96,21 @@ void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 		res.push_back(mesh.mFaces[i].mIndices[0]);
 		res.push_back(mesh.mFaces[i].mIndices[1]);
 		res.push_back(mesh.mFaces[i].mIndices[2]);
+	}
+}
+
+void MergeUV(const aiMesh& mesh, std::vector<glm::vec2>& res)
+{
+	if (mesh.mTextureCoords == nullptr)
+		return;
+
+	assert(mesh.mNumUVComponents[0] == 2);
+	glm::vec2 tmp;
+	for (int i = 0; i < mesh.mNumVertices; ++i)
+	{
+		tmp[0] = mesh.mTextureCoords[0][i][0];
+		tmp[1] = mesh.mTextureCoords[0][i][1];
+		res.push_back(tmp);
 	}
 }
 
@@ -103,9 +164,35 @@ void MyDrawController::InitLightModel()
 		
 }
 
+void MyDrawController::InitTextures(const aiScene& scene)
+{
+	if (!scene.mNumTextures)
+		return;
+	
+	assert(false && "embeded textures are not handled");
+
+	texturesID.resize(scene.mNumTextures);
+	glGenTextures(scene.mNumTextures, texturesID.data());
+
+	for (int i=0; i<scene.mNumTextures; ++i)
+	{
+		const aiTexture& texture = *scene.mTextures[i];
+		glBindTexture(GL_TEXTURE_2D, texturesID[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture.mWidth, texture.mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, reinterpret_cast<void*>(texture.pcData));
+    glGenerateMipmap(GL_TEXTURE_2D);				
+	}
+}
+
+void MyDrawController::LoadTextureForMaterial(const aiMaterial& mat)
+{
+
+}
+	
+
 void MyDrawController::Init(void)
 {
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.dae");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
@@ -117,6 +204,9 @@ void MyDrawController::Init(void)
 	glGenVertexArrays(meshN, VAOs);
 	glGenBuffers(2 * meshN, Buffers);
 	glGenBuffers(meshN, NormalBuffers);
+	glGenBuffers(meshN, TextCoordBuffers);
+
+	InitTextures(*GetScene());
 
 	for (int i = 0; i < meshN; ++i)
 	{
@@ -140,14 +230,24 @@ void MyDrawController::Init(void)
 		glVertexAttribPointer(vNormals, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(vNormals);
 
+		//TextCoordBuffers
+		std::vector<glm::vec2> uvTmp;
+		MergeUV(*pMesh, uvTmp);
+		if (!uvTmp.empty())
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, TextCoordBuffers[i]);
+			glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(glm::vec2), uvTmp.data(), GL_STATIC_DRAW);
+			glVertexAttribPointer(uvTextCoords, 2, GL_FLOAT, GL_FALSE, 0, 0);
+			glEnableVertexAttribArray(uvTextCoords);
+		}
+
 		std::vector<unsigned int> elms;
-
 		MergeElements(*pMesh, elms);
-
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffers[i*2+1]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
-		
 
+
+		
 		InitLightModel();
 	}
 }
@@ -233,6 +333,39 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			float shininess; 
 			if (!mat.Get(AI_MATKEY_SHININESS, shininess))
 				mainShader->setFloat("material.shininess", shininess);
+
+			//lazy loading textures
+			unsigned int texCnt = mat.GetTextureCount(aiTextureType_DIFFUSE);
+			//assert(texCnt == 1);
+
+			for (int i=0; i<texCnt; ++i)
+			{
+				aiString path;
+				if (!mat.GetTexture(aiTextureType_DIFFUSE, i, &path))
+				{
+					auto it = m_texturePathToID.find(std::string(path.C_Str()));
+					GLuint id = 0;
+
+					if (it == m_texturePathToID.end())
+					{
+						id = TextureFromFile(path.C_Str(), m_dirPath);
+						m_texturePathToID[std::string(path.C_Str())] = id;
+					}
+					else
+						id = it->second;
+
+					glActiveTexture(GL_TEXTURE0 + i);
+					mainShader->setInt("textureDiffuse", i);
+
+					glBindTexture(GL_TEXTURE_2D, id);
+
+				}
+				else
+				{
+					std::cout << "Texture reading fail\n";
+				}
+			}
+
 		}
 
 		GLint size = 0;
@@ -372,10 +505,10 @@ void get_bounding_box(const aiScene& scene, aiVector3D* min, aiVector3D* max)
 	get_bounding_box_for_node(scene, scene.mRootNode, min, max, &trafo);
 }
 
-bool MyDrawController::LoadScene(const char* path)
+bool MyDrawController::LoadScene(const std::string& path)
 {
 	bool res = false;
-	if (const aiScene* p = aiImportFile(path, aiProcessPreset_TargetRealtime_MaxQuality))
+	if (const aiScene* p = aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality))
 	{
 		get_bounding_box(*p, &m_scene_min, &m_scene_max);
 		m_scene_center.x = (m_scene_min.x + m_scene_max.x) / 2.0f;
@@ -386,6 +519,8 @@ bool MyDrawController::LoadScene(const char* path)
 
 		res = true;
 	}
+	m_dirPath = path.substr(0, path.find_last_of('/'));
+
 
 	return res;
 

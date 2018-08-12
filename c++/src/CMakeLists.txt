@@ -20,6 +20,7 @@ include_directories(
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/libs/gl3w/
 	${CMAKE_SOURCE_DIR}/3rdparty/lernOpenGL/include/
+	${CMAKE_SOURCE_DIR}/3rdparty/stb_image/include/
 	)
 
 find_package(PkgConfig REQUIRED)
