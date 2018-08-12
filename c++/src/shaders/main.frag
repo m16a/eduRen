@@ -30,7 +30,16 @@ struct Material
 
 uniform Material material;
 
-uniform sampler2D textureDiffuse;
+struct Texture
+{
+	sampler2D diff;
+	sampler2D spec;
+	sampler2D norm;
+};
+
+uniform Texture inTexture;
+
+uniform mat4 model;
 
 out vec4 fColor;
 
@@ -49,17 +58,12 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
   			     light.quadratic * (distance * distance));    
 		*/
     // combine results
-		vec3 ambient  = light.ambient  * material.diffuse;
-    //vec3 ambient  = light.ambient  * texture(textureDiffuse, TexCoords).rgb;
+		//vec3 ambient  = light.ambient  * material.diffuse;
+    vec3 ambient  = light.ambient  * texture(inTexture.diff, TexCoords).rgb;
     //vec3 diffuse  = light.diffuse * diff * (material.diffuse + texture(textureDiffuse, TexCoords).rgb);
-    vec3 diffuse = light.diffuse * texture(textureDiffuse, TexCoords).rgb;
-    vec3 specular = light.specular * spec * material.specular;
-
-		/*
-    vec3 ambient  = light.ambient  * vec3(texture(material.diffuse, TexCoords));
-    vec3 diffuse  = light.diffuse  * diff * vec3(texture(material.diffuse, TexCoords));
-    vec3 specular = light.specular * spec * vec3(texture(material.specular, TexCoords));
-		*/
+    vec3 diffuse = light.diffuse * diff * texture(inTexture.diff, TexCoords).rgb;
+    vec3 specular = light.specular * spec * texture(inTexture.spec, TexCoords).rgb;
+    //vec3 specular = light.specular * spec * material.specular;
 
 		/*
     ambient  *= attenuation;
@@ -72,6 +76,13 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 void main()
 {
 	vec3 res = vec3(0.0, 0.0, 0.0);	
+
+	/*
+	vec3 tNorm = vec3(texture(inTexture.norm, TexCoords));
+	tNorm = vec3(model * vec4(tNorm, 0.0));
+  vec3 norm = normalize(tNorm);
+	*/
+
   vec3 norm = normalize(Normal);
 	vec3 viewDir = normalize(camPos - FragPos);
 

@@ -334,37 +334,9 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			if (!mat.Get(AI_MATKEY_SHININESS, shininess))
 				mainShader->setFloat("material.shininess", shininess);
 
-			//lazy loading textures
-			unsigned int texCnt = mat.GetTextureCount(aiTextureType_DIFFUSE);
-			//assert(texCnt == 1);
-
-			for (int i=0; i<texCnt; ++i)
-			{
-				aiString path;
-				if (!mat.GetTexture(aiTextureType_DIFFUSE, i, &path))
-				{
-					auto it = m_texturePathToID.find(std::string(path.C_Str()));
-					GLuint id = 0;
-
-					if (it == m_texturePathToID.end())
-					{
-						id = TextureFromFile(path.C_Str(), m_dirPath);
-						m_texturePathToID[std::string(path.C_Str())] = id;
-					}
-					else
-						id = it->second;
-
-					glActiveTexture(GL_TEXTURE0 + i);
-					mainShader->setInt("textureDiffuse", i);
-
-					glBindTexture(GL_TEXTURE_2D, id);
-
-				}
-				else
-				{
-					std::cout << "Texture reading fail\n";
-				}
-			}
+			BindTexture(mat, aiTextureType_DIFFUSE, 0);
+			BindTexture(mat, aiTextureType_SPECULAR, 1);
+			//BindTexture(mat, aiTextureType_NORMALS, 2);
 
 		}
 
@@ -376,6 +348,62 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 
 	for (int i = 0; i < nd->mNumChildren; ++i) {
 		RecursiveRender(scene, nd->mChildren[i], w, h, fov);
+	}
+}
+
+std::string GetUniformTextureName(aiTextureType type)
+{
+	switch (type)
+	{
+		case aiTextureType_DIFFUSE:
+			return "inTexture.diff";
+			break;
+		case aiTextureType_SPECULAR:
+			return "inTexture.spec";
+			break;
+		case aiTextureType_NORMALS:
+			return "inTexture.norm";
+			break;
+	}
+	
+	assert(false && "provide texture unoform name");
+	return "none";
+}
+
+void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx)
+{
+	//lazy loading textures
+	unsigned int texCnt = mat.GetTextureCount(type);
+	assert(texCnt <= 1);
+
+	for (int i=0; i<texCnt; ++i)
+	{
+		aiString path;
+		if (!mat.GetTexture(type, i, &path))
+		{
+			auto it = m_texturePathToID.find(std::string(path.C_Str()));
+			GLuint id = 0;
+
+			if (it == m_texturePathToID.end())
+			{
+				id = TextureFromFile(path.C_Str(), m_dirPath);
+				m_texturePathToID[std::string(path.C_Str())] = id;
+			}
+			else
+				id = it->second;
+
+			glActiveTexture(GL_TEXTURE0 + startIndx);
+			
+		
+			mainShader->setInt(GetUniformTextureName(type).c_str(), i);
+
+			glBindTexture(GL_TEXTURE_2D, id);
+
+		}
+		else
+		{
+			std::cout << "Texture reading fail\n";
+		}
 	}
 }
 

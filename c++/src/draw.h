@@ -43,6 +43,7 @@ class MyDrawController
 
 	private:
 	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov);
+	void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
 
 	private:
 	Camera m_cam;
