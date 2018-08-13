@@ -30,8 +30,11 @@ GLuint Buffers[2 * MAX_MESHES_COUNT]; // vertices + elements
 GLuint NormalBuffers[MAX_MESHES_COUNT];
 GLuint TextCoordBuffers[MAX_MESHES_COUNT];
 
-Shader* mainShader = nullptr;
+Shader* mainTextShader = nullptr;
+Shader* mainColShader = nullptr;
 Shader* lightModelShader = nullptr;
+
+Shader* currShader = nullptr;
 
 std::vector<GLuint> texturesID;
 
@@ -101,7 +104,7 @@ void MergeElements(const aiMesh& mesh, std::vector<unsigned int>& res)
 
 void MergeUV(const aiMesh& mesh, std::vector<glm::vec2>& res)
 {
-	if (mesh.mTextureCoords == nullptr)
+	if (mesh.mTextureCoords == nullptr || mesh.mNumUVComponents[0] == 0)
 		return;
 
 	assert(mesh.mNumUVComponents[0] == 2);
@@ -191,8 +194,8 @@ void MyDrawController::LoadTextureForMaterial(const aiMaterial& mat)
 
 void MyDrawController::Init(void)
 {
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.dae");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
@@ -208,6 +211,9 @@ void MyDrawController::Init(void)
 
 	InitTextures(*GetScene());
 
+	mainTextShader = new Shader("shaders/main_textured.vert", "shaders/main_textured.frag");
+	mainColShader = new Shader("shaders/main_col.vert", "shaders/main_col.frag");
+
 	for (int i = 0; i < meshN; ++i)
 	{
 		const aiMesh* pMesh = GetScene()->mMeshes[i];
@@ -217,9 +223,6 @@ void MyDrawController::Init(void)
 
 		glBindBuffer(GL_ARRAY_BUFFER, Buffers[i*2]);
 		glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(aiVector3D), pMesh->mVertices, GL_STATIC_DRAW);
-
-
-		mainShader = new Shader("shaders/main.vert", "shaders/main.frag");
 
 		glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(vPosition);
@@ -261,16 +264,60 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 	{
 		const aiMesh* mesh = scene.mMeshes[nd->mMeshes[i]];
 		assert(mesh);
+
+		//material setup
+		if (m_pScene->mNumMaterials)
+		{
+			unsigned int matIndx = mesh->mMaterialIndex;
+			//std::cout << "matIndx: " << matIndx << std::endl;
+			const aiMaterial& mat = *m_pScene->mMaterials[matIndx];
+
+
+			if (mat.GetTextureCount(aiTextureType_DIFFUSE))
+				currShader = mainTextShader;
+			else
+				currShader = mainColShader;
+			
+			currShader->use();
+
+			if (mat.GetTextureCount(aiTextureType_DIFFUSE))
+			{
+				BindTexture(mat, aiTextureType_DIFFUSE, 0);
+				BindTexture(mat, aiTextureType_SPECULAR, 1);
+				//BindTexture(mat, aiTextureType_NORMALS, 2);
+			}
+			else
+			{
+				aiColor3D col;
+
+				if (!mat.Get(AI_MATKEY_COLOR_AMBIENT, col))
+					currShader->setVec3("material.ambient", col[0], col[1], col[2]);
+
+				if (!mat.Get(AI_MATKEY_COLOR_DIFFUSE, col))
+					currShader->setVec3("material.diffuse", col[0], col[1], col[2]);
+
+				if (!mat.Get(AI_MATKEY_COLOR_SPECULAR, col))
+					currShader->setVec3("material.specular", col[0], col[1], col[2]);
+
+				float shininess; 
+				if (!mat.Get(AI_MATKEY_SHININESS, shininess))
+					currShader->setFloat("material.shininess", shininess);
+			}
+		}
+		else
+			assert(false && "no materials");
+		
+		
 		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
 		glBindVertexArray(VAOs[nd->mMeshes[i]]);
 		
 		glm::mat4 proj = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f);
 		glm::mat4 view = m_cam.GetViewMatrix();
 
-		mainShader->setMat4("model", model);
-		mainShader->setMat4("view", view);
-		mainShader->setMat4("proj", proj);
-		mainShader->setVec3("camPos", m_cam.Position);
+		currShader->setMat4("model", model);
+		currShader->setMat4("view", view);
+		currShader->setMat4("proj", proj);
+		currShader->setVec3("camPos", m_cam.Position);
 
 		//light setup
 		for (int i =0; i < m_pScene->mNumLights; ++i)
@@ -287,58 +334,31 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			char buff[100];
 			snprintf(buff, sizeof(buff), "pointLights[%d].", i);
 			std::string lightI(buff); 
-			mainShader->setVec3(lightI + "pos", glm::vec3(t[3]));
+			currShader->setVec3(lightI + "pos", glm::vec3(t[3]));
 
 			aiColor3D tmp = light.mColorAmbient;
 
 			if (isAmbient)
 				//mainShader->setVec3(lightI + "ambient", tmp[0], tmp[1], tmp[2]);
-				mainShader->setVec3(lightI + "ambient", 0.2, 0.2, 0.2);
+				currShader->setVec3(lightI + "ambient", 0.2, 0.2, 0.2);
 			else
-				mainShader->setVec3(lightI + "ambient", glm::vec3());
+				currShader->setVec3(lightI + "ambient", glm::vec3());
 			
 			tmp = light.mColorDiffuse;	
 			if (isDiffuse)
-				mainShader->setVec3(lightI + "diffuse", tmp[0], tmp[1], tmp[2]);
+				currShader->setVec3(lightI + "diffuse", tmp[0], tmp[1], tmp[2]);
 			else
-				mainShader->setVec3(lightI + "diffuse", glm::vec3());
+				currShader->setVec3(lightI + "diffuse", glm::vec3());
 			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
 
 			tmp = light.mColorSpecular;
 			if (isSpecular)
-				mainShader->setVec3(lightI + "specular", tmp[0], tmp[1], tmp[2]);
+				currShader->setVec3(lightI + "specular", tmp[0], tmp[1], tmp[2]);
 			else
-				mainShader->setVec3(lightI + "specular", glm::vec3());
+				currShader->setVec3(lightI + "specular", glm::vec3());
 			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
 		}
 
-		//material setup
-		if (m_pScene->mNumMaterials)
-		{
-			unsigned int matIndx = mesh->mMaterialIndex;
-			//std::cout << "matIndx: " << matIndx << std::endl;
-			const aiMaterial& mat = *m_pScene->mMaterials[matIndx];
-
-			aiColor3D col;
-
-			if (!mat.Get(AI_MATKEY_COLOR_AMBIENT, col))
-				mainShader->setVec3("material.ambient", col[0], col[1], col[2]);
-
-			if (!mat.Get(AI_MATKEY_COLOR_DIFFUSE, col))
-				mainShader->setVec3("material.diffuse", col[0], col[1], col[2]);
-
-			if (!mat.Get(AI_MATKEY_COLOR_SPECULAR, col))
-				mainShader->setVec3("material.specular", col[0], col[1], col[2]);
-
-			float shininess; 
-			if (!mat.Get(AI_MATKEY_SHININESS, shininess))
-				mainShader->setFloat("material.shininess", shininess);
-
-			BindTexture(mat, aiTextureType_DIFFUSE, 0);
-			BindTexture(mat, aiTextureType_SPECULAR, 1);
-			//BindTexture(mat, aiTextureType_NORMALS, 2);
-
-		}
 
 		GLint size = 0;
 
@@ -394,8 +414,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 
 			glActiveTexture(GL_TEXTURE0 + startIndx);
 			
-		
-			mainShader->setInt(GetUniformTextureName(type).c_str(), i);
+			currShader->setInt(GetUniformTextureName(type).c_str(), i);
 
 			glBindTexture(GL_TEXTURE_2D, id);
 
@@ -411,7 +430,6 @@ void MyDrawController::Render(int w, int h, int fov)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
-	mainShader->use();
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 	
 	//draw lights
