@@ -194,10 +194,11 @@ void MyDrawController::LoadTextureForMaterial(const aiMaterial& mat)
 
 void MyDrawController::Init(void)
 {
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.dae");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.blend");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
 	assert(res);
@@ -319,6 +320,8 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		currShader->setMat4("proj", proj);
 		currShader->setVec3("camPos", m_cam.Position);
 
+		currShader->setInt("nLights", m_pScene->mNumLights);
+
 		//light setup
 		for (int i =0; i < m_pScene->mNumLights; ++i)
 		{
@@ -335,6 +338,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			snprintf(buff, sizeof(buff), "pointLights[%d].", i);
 			std::string lightI(buff); 
 			currShader->setVec3(lightI + "pos", glm::vec3(t[3]));
+
 
 			aiColor3D tmp = light.mColorAmbient;
 
@@ -357,6 +361,10 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			else
 				currShader->setVec3(lightI + "specular", glm::vec3());
 			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
+			
+			currShader->setFloat(lightI + "constant", light.mAttenuationConstant);
+			currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
+			currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
 		}
 
 
@@ -460,8 +468,6 @@ void MyDrawController::Render(int w, int h, int fov)
 		glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
 		glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
 	}
-
-	glFlush();
 }
 
 constexpr float kRotSpeed = 1000.0f;

@@ -11,13 +11,15 @@ struct PointLight
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
+	float constant;
+	float linear;
+	float quadratic;
 };
 
 #define NR_POINT_LIGHTS 10
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 
-vec3 lightCol;
-uniform vec3 lightPos;
+uniform int nLights;
 uniform vec3 camPos;
 
 struct Texture
@@ -42,24 +44,19 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16);
     // attenuation
-		/*
     float distance    = length(light.pos - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + 
-  			     light.quadratic * (distance * distance));    
-		*/
+    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
+
     // combine results
-		//vec3 ambient  = light.ambient  * material.diffuse;
     vec3 ambient  = light.ambient  * texture(inTexture.diff, TexCoords).rgb;
     //vec3 diffuse  = light.diffuse * diff * (material.diffuse + texture(textureDiffuse, TexCoords).rgb);
     vec3 diffuse = light.diffuse * diff * texture(inTexture.diff, TexCoords).rgb;
     vec3 specular = light.specular * spec * texture(inTexture.spec, TexCoords).rgb;
-    //vec3 specular = light.specular * spec * material.specular;
 
-		/*
     ambient  *= attenuation;
     diffuse  *= attenuation;
     specular *= attenuation;
-		*/
+
     return ambient + diffuse + specular;
 }
 
@@ -77,7 +74,7 @@ void main()
 	vec3 viewDir = normalize(camPos - FragPos);
 
 
-	for (int i = 0; i < NR_POINT_LIGHTS; i++)
+	for (int i = 0; i < nLights; i++)
 		res += CalcPointLight(pointLights[i], norm, FragPos, viewDir); 
 
 	fColor = vec4(res, 1.0);
