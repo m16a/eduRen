@@ -194,8 +194,8 @@ void MyDrawController::LoadTextureForMaterial(const aiMaterial& mat)
 
 void MyDrawController::Init(void)
 {
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
@@ -571,6 +571,9 @@ bool MyDrawController::LoadScene(const std::string& path)
 
 		res = true;
 	}
+	else
+		std::cout << "[assimp error]" << aiGetErrorString() << std::endl;
+
 	m_dirPath = path.substr(0, path.find_last_of('/'));
 
 
