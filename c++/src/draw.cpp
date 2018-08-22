@@ -1,7 +1,6 @@
 #include "draw.h"
 
 #include "shader.h"
-
 #include <iostream>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -33,10 +32,15 @@ GLuint TextCoordBuffers[MAX_MESHES_COUNT];
 Shader* mainTextShader = nullptr;
 Shader* mainColShader = nullptr;
 Shader* lightModelShader = nullptr;
+Shader* skyboxShader = nullptr;
 
 Shader* currShader = nullptr;
 
+GLuint skyboxID;
+
 std::vector<GLuint> texturesID;
+
+unsigned int LoadCubemap();
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
@@ -128,14 +132,14 @@ void MyDrawController::InitLightModel()
 	size_t numVertices = 8;
 
 	GLfloat cubeVertices[numVertices][3] = {	
-			{ -0.5, -0.5, -0.5 },  // Vertex 0	
-			{  0.5, -0.5, -0.5 },  // Vertex 1	
-			{  0.5,  0.5, -0.5 },  // Vertex 2	
-			{ -0.5,  0.5, -0.5 },  // Vertex 3	
-			{ -0.5, -0.5,  0.5 },  // Vertex 4	
-			{  0.5, -0.5,  0.5 },  // Vertex 5	
-			{  0.5,  0.5,  0.5 },  // Vertex 6	
-			{ -0.5,  0.5,  0.5 }	 // Vertex 7
+			{ -1.0, -1.0, -1.0 },  // Vertex 0	
+			{  1.0, -1.0, -1.0 },  // Vertex 1	
+			{  1.0,  1.0, -1.0 },  // Vertex 2	
+			{ -1.0,  1.0, -1.0 },  // Vertex 3	
+			{ -1.0, -1.0,  1.0 },  // Vertex 4	
+			{  1.0, -1.0,  1.0 },  // Vertex 5	
+			{  1.0,  1.0,  1.0 },  // Vertex 6	
+			{ -1.0,  1.0,  1.0 }	 // Vertex 7
 	};
 
 	glBufferData(GL_ARRAY_BUFFER,	3 * numVertices * sizeof(GLfloat), cubeVertices, GL_STATIC_DRAW);
@@ -191,7 +195,6 @@ void MyDrawController::LoadTextureForMaterial(const aiMaterial& mat)
 
 }
 	
-
 void MyDrawController::Init(void)
 {
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
@@ -214,6 +217,7 @@ void MyDrawController::Init(void)
 
 	mainTextShader = new Shader("shaders/main_textured.vert", "shaders/main_textured.frag");
 	mainColShader = new Shader("shaders/main_col.vert", "shaders/main_col.frag");
+	skyboxShader  = new Shader("shaders/skybox.vert", "shaders/skybox.frag");
 
 	for (int i = 0; i < meshN; ++i)
 	{
@@ -249,11 +253,10 @@ void MyDrawController::Init(void)
 		MergeElements(*pMesh, elms);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffers[i*2+1]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
-
-
-		
-		InitLightModel();
 	}
+
+	InitLightModel();
+	skyboxID = LoadCubemap();
 }
 
 void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov)
@@ -308,7 +311,6 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		else
 			assert(false && "no materials");
 		
-		
 		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
 		glBindVertexArray(VAOs[nd->mMeshes[i]]);
 		
@@ -320,64 +322,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		currShader->setMat4("proj", proj);
 		currShader->setVec3("camPos", m_cam.Position);
 
-		int pointLightIndx = 0;
-		int dirLightIndx = 0;
-		//light setup
-		for (int i =0; i < m_pScene->mNumLights; ++i)
-		{
-			const aiLight& light= *m_pScene->mLights[i];
-
-			assert(light.mType == aiLightSource_POINT || light.mType == aiLightSource_DIRECTIONAL);
-			aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
-			assert(pLightNode);
-
-			aiMatrix4x4 m = pLightNode->mTransformation;
-			glm::mat4 t = aiMatrix4x4ToGlm(&m);
-
-			char buff[100];
-			std::string lightI;
-			if (light.mType == aiLightSource_POINT)
-			{
-				snprintf(buff, sizeof(buff), "pointLights[%d].", pointLightIndx++);
-				lightI = buff; 
-				currShader->setVec3(lightI + "pos", glm::vec3(t[3]));
-				currShader->setFloat(lightI + "constant", light.mAttenuationConstant);
-				currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
-				currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
-			}
-			else if (light.mType == aiLightSource_DIRECTIONAL)
-			{
-				snprintf(buff, sizeof(buff), "dirLights[%d].", dirLightIndx++);
-				lightI = buff; 
-				currShader->setVec3(lightI + "dir", glm::vec3(t[2]));
-			}
-
-			aiColor3D tmp = light.mColorAmbient;
-
-			if (isAmbient)
-				//mainShader->setVec3(lightI + "ambient", tmp[0], tmp[1], tmp[2]);
-				currShader->setVec3(lightI + "ambient", 0.2, 0.2, 0.2);
-			else
-				currShader->setVec3(lightI + "ambient", glm::vec3());
-			
-			tmp = light.mColorDiffuse;	
-			if (isDiffuse)
-				currShader->setVec3(lightI + "diffuse", tmp[0], tmp[1], tmp[2]);
-			else
-				currShader->setVec3(lightI + "diffuse", glm::vec3());
-			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
-
-			tmp = light.mColorSpecular;
-			if (isSpecular)
-				currShader->setVec3(lightI + "specular", tmp[0], tmp[1], tmp[2]);
-			else
-				currShader->setVec3(lightI + "specular", glm::vec3());
-			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
-			
-		}
-
-		currShader->setInt("nPointLights", pointLightIndx);
-		currShader->setInt("nDirLights", dirLightIndx);
+		SetupLights(currShader);
 
 		GLint size = 0;
 
@@ -388,6 +333,68 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 	for (int i = 0; i < nd->mNumChildren; ++i) {
 		RecursiveRender(scene, nd->mChildren[i], w, h, fov);
 	}
+}
+
+void MyDrawController::SetupLights(Shader* currShader)
+{
+	int pointLightIndx = 0;
+	int dirLightIndx = 0;
+	//light setup
+	for (int i =0; i < m_pScene->mNumLights; ++i)
+	{
+		const aiLight& light= *m_pScene->mLights[i];
+
+		assert(light.mType == aiLightSource_POINT || light.mType == aiLightSource_DIRECTIONAL);
+		aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
+		assert(pLightNode);
+
+		aiMatrix4x4 m = pLightNode->mTransformation;
+		glm::mat4 t = aiMatrix4x4ToGlm(&m);
+
+		char buff[100];
+		std::string lightI;
+		if (light.mType == aiLightSource_POINT)
+		{
+			snprintf(buff, sizeof(buff), "pointLights[%d].", pointLightIndx++);
+			lightI = buff; 
+			currShader->setVec3(lightI + "pos", glm::vec3(t[3]));
+			currShader->setFloat(lightI + "constant", light.mAttenuationConstant);
+			currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
+			currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
+		}
+		else if (light.mType == aiLightSource_DIRECTIONAL)
+		{
+			snprintf(buff, sizeof(buff), "dirLights[%d].", dirLightIndx++);
+			lightI = buff; 
+			currShader->setVec3(lightI + "dir", glm::vec3(t[2]));
+		}
+
+		aiColor3D tmp = light.mColorAmbient;
+
+		if (isAmbient)
+			//mainShader->setVec3(lightI + "ambient", tmp[0], tmp[1], tmp[2]);
+			currShader->setVec3(lightI + "ambient", 0.2, 0.2, 0.2);
+		else
+			currShader->setVec3(lightI + "ambient", glm::vec3());
+		
+		tmp = light.mColorDiffuse;	
+		if (isDiffuse)
+			currShader->setVec3(lightI + "diffuse", tmp[0], tmp[1], tmp[2]);
+		else
+			currShader->setVec3(lightI + "diffuse", glm::vec3());
+		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
+
+		tmp = light.mColorSpecular;
+		if (isSpecular)
+			currShader->setVec3(lightI + "specular", tmp[0], tmp[1], tmp[2]);
+		else
+			currShader->setVec3(lightI + "specular", glm::vec3());
+		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
+		
+	}
+
+	currShader->setInt("nPointLights", pointLightIndx);
+	currShader->setInt("nDirLights", dirLightIndx);
 }
 
 std::string GetUniformTextureName(aiTextureType type)
@@ -432,9 +439,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 				id = it->second;
 
 			glActiveTexture(GL_TEXTURE0 + startIndx);
-			
 			currShader->setInt(GetUniformTextureName(type).c_str(), i);
-
 			glBindTexture(GL_TEXTURE_2D, id);
 
 		}
@@ -451,7 +456,12 @@ void MyDrawController::Render(int w, int h, int fov)
 
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 	
-	//draw lights
+	RenderLights(w, h, fov);
+	RenderSkyBox(w, h, fov);
+}
+
+void MyDrawController::RenderLights(int w, int h, int fov)
+{
 	glBindVertexArray(cubeVAO[0]);
 	lightModelShader->use();
 
@@ -588,5 +598,70 @@ bool MyDrawController::LoadScene(const std::string& path)
 
 
 	return res;
-
 }
+
+
+unsigned int LoadCubemap()
+{
+	static std::string pathToSkyboxFolder = "/home/m16a/Documents/github/eduRen/models/skybox/skybox/";
+	static std::vector<std::string> faces = 
+	{
+			"right.jpg",
+			"left.jpg",
+			"bottom.jpg",
+			"top.jpg",
+			"front.jpg",
+			"back.jpg"
+	};
+
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrChannels;
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		stbi_set_flip_vertically_on_load(true);
+		unsigned char *data = stbi_load((pathToSkyboxFolder + faces[i]).c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+				glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+				stbi_image_free(data);
+		}
+		else
+		{
+				std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+				stbi_image_free(data);
+		}
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
+} 
+
+
+void MyDrawController::RenderSkyBox(int w, int h, int fov)
+{
+	glDepthFunc(GL_LEQUAL);
+	skyboxShader->use();
+	glActiveTexture(GL_TEXTURE0);
+	glBindVertexArray(cubeVAO[0]);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxID);
+
+	glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
+	
+  glm::mat4 view = glm::mat4(glm::mat3(m_cam.GetViewMatrix())); // remove translation from the view matrix
+	glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * view * rot;
+	skyboxShader->setMat4("MVP", mvp_matrix);
+	
+	GLint size = 0;
+	glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+	glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
+	glDepthFunc(GL_LESS);
+}
+

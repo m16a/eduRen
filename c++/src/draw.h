@@ -9,6 +9,8 @@
 #include <map>
 #include <string>
 
+class Shader;
+
 class MyDrawController
 {
 	public:
@@ -43,7 +45,10 @@ class MyDrawController
 
 	private:
 	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov);
+	void RenderSkyBox(int w, int h, int fov);
+	void RenderLights(int w, int h, int fov);
 	void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
+	void SetupLights(Shader* currShader);
 
 	private:
 	Camera m_cam;
