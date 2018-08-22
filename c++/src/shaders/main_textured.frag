@@ -15,11 +15,22 @@ struct PointLight
 	float linear;
 	float quadratic;
 };
-
 #define NR_POINT_LIGHTS 10
 uniform PointLight pointLights[NR_POINT_LIGHTS];
+uniform int nPointLights;
 
-uniform int nLights;
+struct DirLight
+{
+	vec3 dir;
+
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
+};
+#define NR_DIR_LIGHTS 10
+uniform DirLight dirLights[NR_DIR_LIGHTS];
+uniform int nDirLights;
+
 uniform vec3 camPos;
 
 struct Texture
@@ -60,6 +71,23 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     return ambient + diffuse + specular;
 }
 
+vec3 CalcDirLight(DirLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
+{
+    // diffuse shading
+    float diff = max(dot(normal, light.dir), 0.0);
+    // specular shading
+    vec3 reflectDir = reflect(-light.dir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16);
+
+    // combine results
+    vec3 ambient  = light.ambient  * texture(inTexture.diff, TexCoords).rgb;
+    //vec3 diffuse  = light.diffuse * diff * (material.diffuse + texture(textureDiffuse, TexCoords).rgb);
+    vec3 diffuse = light.diffuse * diff * texture(inTexture.diff, TexCoords).rgb;
+    vec3 specular = light.specular * spec * texture(inTexture.spec, TexCoords).rgb;
+
+    return ambient + diffuse + specular;
+}
+
 void main()
 {
 	vec3 res = vec3(0.0, 0.0, 0.0);	
@@ -74,8 +102,11 @@ void main()
 	vec3 viewDir = normalize(camPos - FragPos);
 
 
-	for (int i = 0; i < nLights; i++)
+	for (int i = 0; i < nPointLights; i++)
 		res += CalcPointLight(pointLights[i], norm, FragPos, viewDir); 
+
+	for (int i = 0; i < nDirLights; i++)
+		res += CalcDirLight(dirLights[i], norm, FragPos, viewDir); 
 
 	fColor = vec4(res, 1.0);
 	//fColor = vec4(norm, 1.0);

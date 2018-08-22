@@ -320,14 +320,14 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		currShader->setMat4("proj", proj);
 		currShader->setVec3("camPos", m_cam.Position);
 
-		currShader->setInt("nLights", m_pScene->mNumLights);
-
+		int pointLightIndx = 0;
+		int dirLightIndx = 0;
 		//light setup
 		for (int i =0; i < m_pScene->mNumLights; ++i)
 		{
 			const aiLight& light= *m_pScene->mLights[i];
 
-			assert(light.mType == aiLightSource_POINT);
+			assert(light.mType == aiLightSource_POINT || light.mType == aiLightSource_DIRECTIONAL);
 			aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
 			assert(pLightNode);
 
@@ -335,10 +335,22 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			glm::mat4 t = aiMatrix4x4ToGlm(&m);
 
 			char buff[100];
-			snprintf(buff, sizeof(buff), "pointLights[%d].", i);
-			std::string lightI(buff); 
-			currShader->setVec3(lightI + "pos", glm::vec3(t[3]));
-
+			std::string lightI;
+			if (light.mType == aiLightSource_POINT)
+			{
+				snprintf(buff, sizeof(buff), "pointLights[%d].", pointLightIndx++);
+				lightI = buff; 
+				currShader->setVec3(lightI + "pos", glm::vec3(t[3]));
+				currShader->setFloat(lightI + "constant", light.mAttenuationConstant);
+				currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
+				currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
+			}
+			else if (light.mType == aiLightSource_DIRECTIONAL)
+			{
+				snprintf(buff, sizeof(buff), "dirLights[%d].", dirLightIndx++);
+				lightI = buff; 
+				currShader->setVec3(lightI + "dir", glm::vec3(t[2]));
+			}
 
 			aiColor3D tmp = light.mColorAmbient;
 
@@ -362,11 +374,10 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 				currShader->setVec3(lightI + "specular", glm::vec3());
 			//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
 			
-			currShader->setFloat(lightI + "constant", light.mAttenuationConstant);
-			currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
-			currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
 		}
 
+		currShader->setInt("nPointLights", pointLightIndx);
+		currShader->setInt("nDirLights", dirLightIndx);
 
 		GLint size = 0;
 
@@ -448,7 +459,6 @@ void MyDrawController::Render(int w, int h, int fov)
 	{
 		const aiLight& light= *m_pScene->mLights[i];
 
-		assert(light.mType == aiLightSource_POINT);
 		aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
 		assert(pLightNode);
 
