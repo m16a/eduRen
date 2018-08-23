@@ -134,7 +134,9 @@ int main(int, char**)
 						ImGui::Checkbox("ambient", &MyDrawController::isAmbient);	ImGui::SameLine(100);
 						ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);	ImGui::SameLine(200);
 						ImGui::Checkbox("specular", &MyDrawController::isSpecular);	
-						ImGui::Checkbox("wire mode", &MyDrawController::isWireMode);	
+						ImGui::Checkbox("wire mode", &MyDrawController::isWireMode); ImGui::SameLine(100);
+						ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
+
 						ImGui::SliderInt("fov", &sFOV, 10, 90);
 
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

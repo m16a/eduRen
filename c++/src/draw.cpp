@@ -15,6 +15,7 @@ bool MyDrawController::isWireMode = false;
 bool MyDrawController::isAmbient = true;
 bool MyDrawController::isDiffuse = true;
 bool MyDrawController::isSpecular = true;
+bool MyDrawController::drawSkybox = true;
 
 enum Buffer_IDs { ArrayBuffer, IndicesBuffer, NumBuffers };
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
@@ -457,7 +458,9 @@ void MyDrawController::Render(int w, int h, int fov)
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 	
 	RenderLights(w, h, fov);
-	RenderSkyBox(w, h, fov);
+
+	if (drawSkybox)
+		RenderSkyBox(w, h, fov);
 }
 
 void MyDrawController::RenderLights(int w, int h, int fov)

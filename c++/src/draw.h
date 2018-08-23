@@ -42,6 +42,7 @@ class MyDrawController
 	static bool isAmbient;
 	static bool isDiffuse;
 	static bool isSpecular;
+	static bool drawSkybox;
 
 	private:
 	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov);
