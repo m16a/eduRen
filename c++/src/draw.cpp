@@ -15,7 +15,7 @@ bool MyDrawController::isWireMode = false;
 bool MyDrawController::isAmbient = true;
 bool MyDrawController::isDiffuse = true;
 bool MyDrawController::isSpecular = true;
-bool MyDrawController::drawSkybox = true;
+bool MyDrawController::drawSkybox = false;
 
 enum Buffer_IDs { ArrayBuffer, IndicesBuffer, NumBuffers };
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
