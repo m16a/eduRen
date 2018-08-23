@@ -34,6 +34,7 @@ Shader* mainTextShader = nullptr;
 Shader* mainColShader = nullptr;
 Shader* lightModelShader = nullptr;
 Shader* skyboxShader = nullptr;
+Shader* envMapColorShader = nullptr;
 
 Shader* currShader = nullptr;
 
@@ -219,6 +220,7 @@ void MyDrawController::Init(void)
 	mainTextShader = new Shader("shaders/main_textured.vert", "shaders/main_textured.frag");
 	mainColShader = new Shader("shaders/main_col.vert", "shaders/main_col.frag");
 	skyboxShader  = new Shader("shaders/skybox.vert", "shaders/skybox.frag");
+	envMapColorShader = new Shader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
 
 	for (int i = 0; i < meshN; ++i)
 	{
@@ -278,10 +280,17 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			const aiMaterial& mat = *m_pScene->mMaterials[matIndx];
 
 
-			if (mat.GetTextureCount(aiTextureType_DIFFUSE))
-				currShader = mainTextShader;
+			if (drawSkybox)
+			{
+				currShader = envMapColorShader;
+			}
 			else
-				currShader = mainColShader;
+			{
+				if (mat.GetTextureCount(aiTextureType_DIFFUSE))
+					currShader = mainTextShader;
+				else
+					currShader = mainColShader;
+			}
 			
 			currShader->use();
 
@@ -323,6 +332,12 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		currShader->setMat4("proj", proj);
 		currShader->setVec3("camPos", m_cam.Position);
 
+		if (drawSkybox)
+		{
+				glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(1, 0, 0));
+				currShader->setMat4("rotfix", rot);
+		}
+
 		SetupLights(currShader);
 
 		GLint size = 0;
@@ -338,6 +353,14 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 
 void MyDrawController::SetupLights(Shader* currShader)
 {
+	if (drawSkybox)
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxID);
+
+		return;
+	}
+
 	int pointLightIndx = 0;
 	int dirLightIndx = 0;
 	//light setup
@@ -457,7 +480,8 @@ void MyDrawController::Render(int w, int h, int fov)
 
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
 	
-	RenderLights(w, h, fov);
+	if (!drawSkybox)
+		RenderLights(w, h, fov);
 
 	if (drawSkybox)
 		RenderSkyBox(w, h, fov);
@@ -652,8 +676,8 @@ void MyDrawController::RenderSkyBox(int w, int h, int fov)
 {
 	glDepthFunc(GL_LEQUAL);
 	skyboxShader->use();
-	glActiveTexture(GL_TEXTURE0);
 	glBindVertexArray(cubeVAO[0]);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxID);
 
 	glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
