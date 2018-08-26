@@ -136,6 +136,7 @@ int main(int, char**)
 						ImGui::Checkbox("specular", &MyDrawController::isSpecular);	
 						ImGui::Checkbox("wire mode", &MyDrawController::isWireMode); ImGui::SameLine(100);
 						ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
+						ImGui::Checkbox("normals", &MyDrawController::drawNormals);	
 
 						ImGui::SliderInt("fov", &sFOV, 10, 90);
 

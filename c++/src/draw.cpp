@@ -16,6 +16,7 @@ bool MyDrawController::isAmbient = true;
 bool MyDrawController::isDiffuse = true;
 bool MyDrawController::isSpecular = true;
 bool MyDrawController::drawSkybox = false;
+bool MyDrawController::drawNormals = false;
 
 enum Buffer_IDs { ArrayBuffer, IndicesBuffer, NumBuffers };
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
@@ -35,6 +36,7 @@ Shader* mainColShader = nullptr;
 Shader* lightModelShader = nullptr;
 Shader* skyboxShader = nullptr;
 Shader* envMapColorShader = nullptr;
+Shader* normalShader = nullptr;
 
 Shader* currShader = nullptr;
 
@@ -199,8 +201,8 @@ void MyDrawController::LoadTextureForMaterial(const aiMaterial& mat)
 	
 void MyDrawController::Init(void)
 {
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
@@ -221,6 +223,7 @@ void MyDrawController::Init(void)
 	mainColShader = new Shader("shaders/main_col.vert", "shaders/main_col.frag");
 	skyboxShader  = new Shader("shaders/skybox.vert", "shaders/skybox.frag");
 	envMapColorShader = new Shader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
+	normalShader = new Shader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
 
 	for (int i = 0; i < meshN; ++i)
 	{
@@ -262,7 +265,7 @@ void MyDrawController::Init(void)
 	skyboxID = LoadCubemap();
 }
 
-void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov)
+void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov, bool _drawNormals)
 {
 	aiMatrix4x4 m = nd->mTransformation;
 	glm::mat4 model = aiMatrix4x4ToGlm(&m);
@@ -279,8 +282,11 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 			//std::cout << "matIndx: " << matIndx << std::endl;
 			const aiMaterial& mat = *m_pScene->mMaterials[matIndx];
 
-
-			if (drawSkybox)
+			if (_drawNormals)
+			{
+				currShader = normalShader;
+			}
+			else if (drawSkybox)
 			{
 				currShader = envMapColorShader;
 			}
@@ -347,7 +353,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 	}
 
 	for (int i = 0; i < nd->mNumChildren; ++i) {
-		RecursiveRender(scene, nd->mChildren[i], w, h, fov);
+		RecursiveRender(scene, nd->mChildren[i], w, h, fov, _drawNormals);
 	}
 }
 
@@ -478,7 +484,10 @@ void MyDrawController::Render(int w, int h, int fov)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
-	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov);
+	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov, false);
+
+	if (drawNormals)
+		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov, true);
 	
 	if (!drawSkybox)
 		RenderLights(w, h, fov);
