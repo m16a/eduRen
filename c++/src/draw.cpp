@@ -265,7 +265,7 @@ void MyDrawController::Init(void)
 	skyboxID = LoadCubemap();
 }
 
-void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov, bool _drawNormals)
+void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, bool _drawNormals)
 {
 	aiMatrix4x4 m = nd->mTransformation;
 	glm::mat4 model = aiMatrix4x4ToGlm(&m);
@@ -330,13 +330,13 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
 		glBindVertexArray(VAOs[nd->mMeshes[i]]);
 		
-		glm::mat4 proj = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f);
-		glm::mat4 view = m_cam.GetViewMatrix();
+		glm::mat4 proj = cam.GetProjMatrix();
+		glm::mat4 view = cam.GetViewMatrix();
 
 		currShader->setMat4("model", model);
 		currShader->setMat4("view", view);
 		currShader->setMat4("proj", proj);
-		currShader->setVec3("camPos", m_cam.Position);
+		currShader->setVec3("camPos", cam.Position);
 
 		if (drawSkybox)
 		{
@@ -353,7 +353,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, i
 	}
 
 	for (int i = 0; i < nd->mNumChildren; ++i) {
-		RecursiveRender(scene, nd->mChildren[i], w, h, fov, _drawNormals);
+		RecursiveRender(scene, nd->mChildren[i], cam, _drawNormals);
 	}
 }
 
@@ -480,23 +480,23 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 	}
 }
 
-void MyDrawController::Render(int w, int h, int fov)
+void MyDrawController::Render(const Camera& cam)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
-	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov, false);
+	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, false);
 
 	if (drawNormals)
-		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, w, h, fov, true);
+		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, true);
 	
 	if (!drawSkybox)
-		RenderLights(w, h, fov);
+		RenderLights(cam);
 
 	if (drawSkybox)
-		RenderSkyBox(w, h, fov);
+		RenderSkyBox(cam);
 }
 
-void MyDrawController::RenderLights(int w, int h, int fov)
+void MyDrawController::RenderLights(const Camera& cam)
 {
 	glBindVertexArray(cubeVAO[0]);
 	lightModelShader->use();
@@ -512,7 +512,7 @@ void MyDrawController::RenderLights(int w, int h, int fov)
 		glm::mat4 t = aiMatrix4x4ToGlm(&m);
 
 		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-		glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * m_cam.GetViewMatrix() * t * scale;
+		glm::mat4 mvp_matrix = cam.GetProjMatrix() * cam.GetViewMatrix() * t * scale;
 		
 		aiColor3D tmp = light.mColorDiffuse;	
 		lightModelShader->setVec3("lightColor", tmp[0], tmp[1], tmp[2]);
@@ -681,7 +681,7 @@ unsigned int LoadCubemap()
 } 
 
 
-void MyDrawController::RenderSkyBox(int w, int h, int fov)
+void MyDrawController::RenderSkyBox(const Camera& cam)
 {
 	glDepthFunc(GL_LEQUAL);
 	skyboxShader->use();
@@ -692,7 +692,7 @@ void MyDrawController::RenderSkyBox(int w, int h, int fov)
 	glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
 	
   glm::mat4 view = glm::mat4(glm::mat3(m_cam.GetViewMatrix())); // remove translation from the view matrix
-	glm::mat4 mvp_matrix = glm::perspective(glm::radians(float(fov)), float(w) / h, 0.001f, 100.f) * view * rot;
+	glm::mat4 mvp_matrix = cam.GetProjMatrix() * view * rot;
 	skyboxShader->setMat4("MVP", mvp_matrix);
 	
 	GLint size = 0;

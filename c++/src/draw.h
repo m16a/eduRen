@@ -15,7 +15,7 @@ class MyDrawController
 {
 	public:
 	void Init();
-	void Render(int w, int h, int fov);
+	void Render(const Camera& cam);
 
 	Camera& GetCam() { return m_cam;}
 	
@@ -46,9 +46,9 @@ class MyDrawController
 	static bool drawNormals;
 
 	private:
-	void RecursiveRender(const aiScene& scene, const aiNode* nd, int w, int h, int fov, bool drawNormals);
-	void RenderSkyBox(int w, int h, int fov);
-	void RenderLights(int w, int h, int fov);
+	void RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, bool drawNormals);
+	void RenderSkyBox(const Camera& cam);
+	void RenderLights(const Camera& cam);
 	void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
 	void SetupLights(Shader* currShader);
 

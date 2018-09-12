@@ -20,6 +20,9 @@
 #include <chrono>
 #include <ratio>
 
+static const int WINDOW_WIDTH = 1280;
+static const int WINDOW_HEIGHT = 1280;
+
 static void error_callback(int error, const char* description)
 {
     fprintf(stderr, "Error %d: %s\n", error, description);
@@ -52,6 +55,7 @@ void checkKeys(MyDrawController& mdc, ImGuiIO& io)
 int main(int, char**)
 {
 		using namespace std::chrono;
+
     // Setup window
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
@@ -59,10 +63,7 @@ int main(int, char**)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#if __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "eduRen", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "eduRen", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
 
@@ -71,9 +72,7 @@ int main(int, char**)
 
     // Setup ImGui binding
     ImGui_ImplGlfwGL3_Init(window, true);
-
     ImGuiIO& io = ImGui::GetIO();
-
 		mdc.Init();
 		
     bool show_test_window = true;
@@ -83,9 +82,6 @@ int main(int, char**)
 
 
 		aiLogStream stream;
-	//	stream = aiGetPredefinedLogStream(aiDefaultLogStream_STDOUT,NULL);
-	//	aiAttachLogStream(&stream);
-
 		stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE,"assimp_log.txt");
 		aiAttachLogStream(&stream);
 
@@ -104,57 +100,53 @@ int main(int, char**)
         // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
-				//std::cout << "WCK: " << io.WantCaptureKeyboard << std::endl;
 				high_resolution_clock::time_point start = high_resolution_clock::now();
 
         glfwPollEvents();
         ImGui_ImplGlfwGL3_NewFrame();
 				checkKeys(mdc, io);
 
-        static int sFOV = 60;
-        // 1. Show a simple window.
-        // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets appears in a window automatically called "Debug".
-        {
-						const glm::vec3& camPos = mdc.GetCam().Position;
-            ImGui::Text("Cam dir %.2f %.2f %.2f", camPos[0], camPos[1], camPos[2]);
-						
-						unsigned int meshN = 0;
-						unsigned int lightsN = 0;
-						unsigned int materialsN = 0;
-						unsigned int texturesN = 0;
-						if (mdc.GetScene())
-						{
-							meshN = mdc.GetScene()->mNumMeshes;
-							lightsN = mdc.GetScene()->mNumLights;
-							materialsN = mdc.GetScene()->mNumMaterials;
-							texturesN = mdc.GetScene()->mNumTextures;
-						}
-            ImGui::Text("meshes:%d, lights:%d, materials:%d, embededTextures:%d", meshN, lightsN, materialsN, texturesN);
+				Camera& cam = mdc.GetCam();
 
-						ImGui::Checkbox("ambient", &MyDrawController::isAmbient);	ImGui::SameLine(100);
-						ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);	ImGui::SameLine(200);
-						ImGui::Checkbox("specular", &MyDrawController::isSpecular);	
-						ImGui::Checkbox("wire mode", &MyDrawController::isWireMode); ImGui::SameLine(100);
-						ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
-						ImGui::Checkbox("normals", &MyDrawController::drawNormals);	
+				const glm::vec3& camPos = cam.Position;
+				ImGui::Text("Cam pos: %.2f %.2f %.2f", camPos[0], camPos[1], camPos[2]);
+				
+				unsigned int meshN = 0;
+				unsigned int lightsN = 0;
+				unsigned int materialsN = 0;
+				unsigned int texturesN = 0;
+				if (mdc.GetScene())
+				{
+					meshN = mdc.GetScene()->mNumMeshes;
+					lightsN = mdc.GetScene()->mNumLights;
+					materialsN = mdc.GetScene()->mNumMaterials;
+					texturesN = mdc.GetScene()->mNumTextures;
+				}
+				ImGui::Text("meshes:%d, lights:%d, materials:%d, embededTextures:%d", meshN, lightsN, materialsN, texturesN);
 
-						ImGui::SliderInt("fov", &sFOV, 10, 90);
+				ImGui::Checkbox("ambient", &MyDrawController::isAmbient);	ImGui::SameLine(100);
+				ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);	ImGui::SameLine(200);
+				ImGui::Checkbox("specular", &MyDrawController::isSpecular);	
+				ImGui::Checkbox("wire mode", &MyDrawController::isWireMode); ImGui::SameLine(100);
+				ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
+				ImGui::Checkbox("normals", &MyDrawController::drawNormals);	
 
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::Text("Real time %.2f/%.2f/%.2f ms",
-												*(std::min_element(fpss.begin(), fpss.end())) * 1000.0f,
-												 std::accumulate(fpss.begin(), fpss.end(), 0.0f) / fpss.size() * 1000.0f,
-												*(std::max_element(fpss.begin(), fpss.end())) * 1000.0f);
+				ImGui::SliderInt("fov", (int*)&cam.FOV, 10, 90);
 
-						if (fpss.size() > kFPScnt)
-							fpss.erase(fpss.begin());
+				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+				ImGui::Text("Real time %.2f/%.2f/%.2f ms",
+										*(std::min_element(fpss.begin(), fpss.end())) * 1000.0f,
+										 std::accumulate(fpss.begin(), fpss.end(), 0.0f) / fpss.size() * 1000.0f,
+										*(std::max_element(fpss.begin(), fpss.end())) * 1000.0f);
 
-						//fpss.push_back(ImGui::GetIO().DeltaTime);
-						fpss.push_back(timeSpan.count());
+				if (fpss.size() > kFPScnt)
+					fpss.erase(fpss.begin());
 
-						ImGui::PlotLines("Frame ms", fpss.data(), fpss.size(), 0, nullptr, 0.0f, 0.010, ImVec2(0, 80));
-						ImGui::Checkbox("Clamp 60 FPS", &clamp60FPS);	
-        }
+				//fpss.push_back(ImGui::GetIO().DeltaTime);
+				fpss.push_back(timeSpan.count());
+
+				ImGui::PlotLines("Frame ms", fpss.data(), fpss.size(), 0, nullptr, 0.0f, 0.010, ImVec2(0, 80));
+				ImGui::Checkbox("Clamp 60 FPS", &clamp60FPS);	
 
         // 2. Show another simple window. In most cases you will use an explicit Begin/End pair to name the window.
         if (show_another_window)
@@ -178,12 +170,13 @@ int main(int, char**)
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 				glEnable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
+			
 				glEnable(GL_CULL_FACE); // cull face
 				glCullFace(GL_BACK); // cull back face
 
-				mdc.Render(display_w, display_h, sFOV);
-
+				cam.Width = display_w;
+				cam.Height = display_h;
+				mdc.Render(cam);
         ImGui::Render();
         glfwSwapBuffers(window);
 
