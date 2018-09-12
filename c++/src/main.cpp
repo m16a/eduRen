@@ -60,6 +60,7 @@ int main(int, char**)
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
         return 1;
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -79,7 +80,6 @@ int main(int, char**)
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(10.0f/255.0f, 10.0f/255.0f, 10.0f/255.0f, 1.00f);
     //ImVec4 clear_color = ImVec4(115.0f/255.0f, 140.0f/255.0f, 153.0f/255.0f, 1.00f);
-
 
 		aiLogStream stream;
 		stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE,"assimp_log.txt");
@@ -131,7 +131,7 @@ int main(int, char**)
 				ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
 				ImGui::Checkbox("normals", &MyDrawController::drawNormals);	
 
-				ImGui::SliderInt("fov", (int*)&cam.FOV, 10, 90);
+				ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
 				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 				ImGui::Text("Real time %.2f/%.2f/%.2f ms",
@@ -151,16 +151,16 @@ int main(int, char**)
         // 2. Show another simple window. In most cases you will use an explicit Begin/End pair to name the window.
         if (show_another_window)
         {
-            ImGui::Begin("Another Window", &show_another_window);
-            ImGui::Text("Hello from another window!");
-            ImGui::End();
+					ImGui::Begin("Another Window", &show_another_window);
+					ImGui::Text("Hello from another window!");
+					ImGui::End();
         }
 
         // 3. Show the ImGui test window. Most of the sample code is in ImGui::ShowTestWindow().
         if (show_test_window)
         {
-            ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
-            ImGui::ShowTestWindow(&show_test_window);
+					ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
+					ImGui::ShowTestWindow(&show_test_window);
         }
 
         // Rendering
@@ -181,9 +181,7 @@ int main(int, char**)
         glfwSwapBuffers(window);
 
 				high_resolution_clock::time_point end = high_resolution_clock::now();
-
 				timeSpan = duration_cast<duration<float>>(end - start);
-
 				if (clamp60FPS)
 				{
 					float secLeft = 1.0f / 60 - timeSpan.count();

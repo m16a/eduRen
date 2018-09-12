@@ -526,46 +526,44 @@ void MyDrawController::RenderLights(const Camera& cam)
 	}
 }
 
-constexpr float kRotSpeed = 1000.0f;
-
 void MyDrawController::OnKeyW(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::FORWARD, dt, haste);
+	m_cam.ProcessKeyboard(eCameraMovement::FORWARD, dt, haste);
 }
 
 void MyDrawController::OnKeyS(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::BACKWARD, dt, haste);
+	m_cam.ProcessKeyboard(eCameraMovement::BACKWARD, dt, haste);
 }
 
 void MyDrawController::OnKeyA(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::LEFT, dt, haste);
+	m_cam.ProcessKeyboard(eCameraMovement::LEFT, dt, haste);
 }
 
 void MyDrawController::OnKeyD(float dt, bool haste)
 {
-	m_cam.ProcessKeyboard(Camera_Movement::RIGHT, dt, haste);
+	m_cam.ProcessKeyboard(eCameraMovement::RIGHT, dt, haste);
 }
 
 void MyDrawController::OnKeyUp(float dt)
 {
-	m_cam.ProcessMouseMovement(0.0f, kRotSpeed * dt);
+	m_cam.ProcessRotation(eCameraMovement::PITCH_UP, dt);
 }
 
 void MyDrawController::OnKeyDown(float dt)
 {
-	m_cam.ProcessMouseMovement(0.0f, -kRotSpeed * dt);
+	m_cam.ProcessRotation(eCameraMovement::PITCH_DOWN, dt);
 }
 
 void MyDrawController::OnKeyRight(float dt)
 {
-	m_cam.ProcessMouseMovement(kRotSpeed * dt, 0.0f);
+	m_cam.ProcessRotation(eCameraMovement::YAW_RIGHT, dt);
 }
 
 void MyDrawController::OnKeyLeft(float dt)
 {
-	m_cam.ProcessMouseMovement(-kRotSpeed * dt, 0.0f);
+	m_cam.ProcessRotation(eCameraMovement::YAW_LEFT, dt);
 }
 
 void MyDrawController::OnKeySpace(float dt)
