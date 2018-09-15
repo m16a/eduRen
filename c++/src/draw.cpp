@@ -8,10 +8,9 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
-#define MAX_MESHES_COUNT 100
 
 bool MyDrawController::isWireMode = false;
 bool MyDrawController::isAmbient = true;
@@ -20,18 +19,7 @@ bool MyDrawController::isSpecular = true;
 bool MyDrawController::drawSkybox = false;
 bool MyDrawController::drawNormals = false;
 
-enum Buffer_IDs { ArrayBuffer, IndicesBuffer, NumBuffers };
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
-
-GLuint VAOs[MAX_MESHES_COUNT];
-GLuint EAOs[MAX_MESHES_COUNT];
-
-GLuint cubeVAO[1];
-GLuint cubeBuffers[2];
-
-GLuint Buffers[2 * MAX_MESHES_COUNT]; // vertices + elements
-GLuint NormalBuffers[MAX_MESHES_COUNT];
-GLuint TextCoordBuffers[MAX_MESHES_COUNT];
 
 Shader* mainTextShader = nullptr;
 Shader* mainColShader = nullptr;
@@ -41,10 +29,6 @@ Shader* envMapColorShader = nullptr;
 Shader* normalShader = nullptr;
 
 Shader* currShader = nullptr;
-
-GLuint skyboxID;
-
-std::vector<GLuint> texturesID;
 
 unsigned int LoadCubemap();
 
@@ -131,14 +115,19 @@ MyDrawController::MyDrawController() : m_inputHandler(*this)
 {
 }
 
+MyDrawController::~MyDrawController()
+{
+	m_resources.Release();
+}
+
 void MyDrawController::InitLightModel()
 {
-	glGenVertexArrays(1, cubeVAO);
-	glGenBuffers(2, cubeBuffers);
+	glGenVertexArrays(1, &m_resources.cubeVAOID);
+	glGenBuffers(1, &m_resources.cubeVertID);
 
-	glBindVertexArray(cubeVAO[0]);
+	glBindVertexArray(m_resources.cubeVAOID);
 
-	glBindBuffer(GL_ARRAY_BUFFER, cubeBuffers[0]);		
+	glBindBuffer(GL_ARRAY_BUFFER, m_resources.cubeVertID);		
 	glBufferData(GL_ARRAY_BUFFER,	3 * cubeVerticiesCount * sizeof(GLfloat), cubeVertices, GL_STATIC_DRAW);
 
 	lightModelShader = new Shader("shaders/light.vert", "shaders/light.frag");
@@ -146,76 +135,35 @@ void MyDrawController::InitLightModel()
 	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeBuffers[1]);
+	glGenBuffers(1, &m_resources.cubeElemID);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_resources.cubeElemID);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER,  cubeIndiciesCount * sizeof(GLint), cubeIndices, GL_STATIC_DRAW);
-		
 }
 
-void MyDrawController::InitTextures(const aiScene& scene)
+void MyDrawController::LoadMeshesData()
 {
-	if (!scene.mNumTextures)
-		return;
-	
-	assert(false && "embeded textures are not handled");
-
-	texturesID.resize(scene.mNumTextures);
-	glGenTextures(scene.mNumTextures, texturesID.data());
-
-	for (int i=0; i<scene.mNumTextures; ++i)
-	{
-		const aiTexture& texture = *scene.mTextures[i];
-		glBindTexture(GL_TEXTURE_2D, texturesID[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture.mWidth, texture.mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, reinterpret_cast<void*>(texture.pcData));
-    glGenerateMipmap(GL_TEXTURE_2D);				
-	}
-}
-
-void MyDrawController::LoadTextureForMaterial(const aiMaterial& mat)
-{
-
-}
-	
-void MyDrawController::Init(void)
-{
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
-	assert(res);
-
 	const unsigned int meshN = GetScene()->mNumMeshes;
 
-	glGenVertexArrays(meshN, VAOs);
-	glGenBuffers(2 * meshN, Buffers);
-	glGenBuffers(meshN, NormalBuffers);
-	glGenBuffers(meshN, TextCoordBuffers);
-
-	InitTextures(*GetScene());
-
-	mainTextShader = new Shader("shaders/main_textured.vert", "shaders/main_textured.frag");
-	mainColShader = new Shader("shaders/main_col.vert", "shaders/main_col.frag");
-	skyboxShader  = new Shader("shaders/skybox.vert", "shaders/skybox.frag");
-	envMapColorShader = new Shader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
-	normalShader = new Shader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
+	glGenVertexArrays(meshN, m_resources.VAOs.data());
+	glGenBuffers(meshN, m_resources.vertIDs.data());
+	glGenBuffers(meshN, m_resources.elemIDs.data());
+	glGenBuffers(meshN, m_resources.normIDs.data());
+	glGenBuffers(meshN, m_resources.uvIDs.data());
 
 	for (int i = 0; i < meshN; ++i)
 	{
 		const aiMesh* pMesh = GetScene()->mMeshes[i];
 		assert(pMesh);
 
-		glBindVertexArray(VAOs[i]);
+		glBindVertexArray(m_resources.VAOs[i]);
 
-		glBindBuffer(GL_ARRAY_BUFFER, Buffers[i*2]);
+		glBindBuffer(GL_ARRAY_BUFFER, m_resources.vertIDs[i]);
 		glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(aiVector3D), pMesh->mVertices, GL_STATIC_DRAW);
 
 		glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(vPosition);
 
-
-		glBindBuffer(GL_ARRAY_BUFFER, NormalBuffers[i]);
+		glBindBuffer(GL_ARRAY_BUFFER, m_resources.normIDs[i]);
 		glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(aiVector3D), pMesh->mNormals, GL_STATIC_DRAW);
 		glVertexAttribPointer(vNormals, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(vNormals);
@@ -225,7 +173,7 @@ void MyDrawController::Init(void)
 		MergeUV(*pMesh, uvTmp);
 		if (!uvTmp.empty())
 		{
-			glBindBuffer(GL_ARRAY_BUFFER, TextCoordBuffers[i]);
+			glBindBuffer(GL_ARRAY_BUFFER, m_resources.uvIDs[i]);
 			glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(glm::vec2), uvTmp.data(), GL_STATIC_DRAW);
 			glVertexAttribPointer(uvTextCoords, 2, GL_FLOAT, GL_FALSE, 0, 0);
 			glEnableVertexAttribArray(uvTextCoords);
@@ -233,12 +181,33 @@ void MyDrawController::Init(void)
 
 		std::vector<unsigned int> elms;
 		MergeElements(*pMesh, elms);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffers[i*2+1]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_resources.elemIDs[i]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
 	}
 
+}
+
+void MyDrawController::Load(void)
+{
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
+	assert(res || "cannot load scene");
+
+	LoadMeshesData();
+
+	mainTextShader = new Shader("shaders/main_textured.vert", "shaders/main_textured.frag");
+	mainColShader = new Shader("shaders/main_col.vert", "shaders/main_col.frag");
+	skyboxShader  = new Shader("shaders/skybox.vert", "shaders/skybox.frag");
+	envMapColorShader = new Shader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
+	normalShader = new Shader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
+
 	InitLightModel();
-	skyboxID = LoadCubemap();
+	m_resources.skyboxTextID = LoadCubemap();
 }
 
 void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, bool _drawNormals)
@@ -303,8 +272,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, c
 		else
 			assert(false && "no materials");
 		
-		//apply_material(scene.mMaterials[mesh->mMaterialIndex]);
-		glBindVertexArray(VAOs[nd->mMeshes[i]]);
+		glBindVertexArray(m_resources.VAOs[nd->mMeshes[i]]);
 		
 		glm::mat4 proj = cam.GetProjMatrix();
 		glm::mat4 view = cam.GetViewMatrix();
@@ -338,7 +306,7 @@ void MyDrawController::SetupLights(Shader* currShader)
 	if (drawSkybox)
 	{
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxID);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
 		return;
 	}
@@ -433,13 +401,13 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 		aiString path;
 		if (!mat.GetTexture(type, i, &path))
 		{
-			auto it = m_texturePathToID.find(std::string(path.C_Str()));
+			auto it = m_resources.texturePathToID.find(std::string(path.C_Str()));
 			GLuint id = 0;
 
-			if (it == m_texturePathToID.end())
+			if (it == m_resources.texturePathToID.end())
 			{
 				id = TextureFromFile(path.C_Str(), m_dirPath);
-				m_texturePathToID[std::string(path.C_Str())] = id;
+				m_resources.texturePathToID[std::string(path.C_Str())] = id;
 			}
 			else
 				id = it->second;
@@ -474,7 +442,7 @@ void MyDrawController::Render(const Camera& cam)
 
 void MyDrawController::RenderLightModels(const Camera& cam)
 {
-	glBindVertexArray(cubeVAO[0]);
+	glBindVertexArray(m_resources.cubeVAOID);
 	lightModelShader->use();
 
 	for (int i =0; i < m_pScene->mNumLights; ++i)
@@ -502,71 +470,28 @@ void MyDrawController::RenderLightModels(const Camera& cam)
 	}
 }
 
-
-void get_bounding_box_for_node(const aiScene& scene, const aiNode* nd, aiVector3D* min,	aiVector3D* max, aiMatrix4x4* trafo)
-{
-	aiMatrix4x4 prev;
-	unsigned int n = 0, t;
-
-	prev = *trafo;
-	aiMultiplyMatrix4(trafo,&nd->mTransformation);
-
-	for (; n < nd->mNumMeshes; ++n) {
-		aiMesh* mesh = scene.mMeshes[nd->mMeshes[n]];
-		for (t = 0; t < mesh->mNumVertices; ++t) {
-
-			aiVector3D tmp = mesh->mVertices[t];
-			aiTransformVecByMatrix4(&tmp, trafo);
-
-			min->x = std::min(min->x, tmp.x);
-			min->y = std::min(min->y, tmp.y);
-			min->z = std::min(min->z, tmp.z);
-
-			max->x = std::max(max->x, tmp.x);
-			max->y = std::max(max->y, tmp.y);
-			max->z = std::max(max->z, tmp.z);
-		}
-	}
-
-	for (n = 0; n < nd->mNumChildren; ++n) {
-		get_bounding_box_for_node(scene, nd->mChildren[n], min, max,trafo);
-	}
-	*trafo = prev;
-}
-
-void get_bounding_box(const aiScene& scene, aiVector3D* min, aiVector3D* max)
-{
-	aiMatrix4x4 trafo;
-	aiIdentityMatrix4(&trafo);
-
-	min->x = min->y = min->z =  1e10f;
-	max->x = max->y = max->z = -1e10f;
-	get_bounding_box_for_node(scene, scene.mRootNode, min, max, &trafo);
-}
-
 bool MyDrawController::LoadScene(const std::string& path)
 {
 	bool res = false;
 	if (const aiScene* p = aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality))
 	{
-		get_bounding_box(*p, &m_scene_min, &m_scene_max);
-		m_scene_center.x = (m_scene_min.x + m_scene_max.x) / 2.0f;
-		m_scene_center.y = (m_scene_min.y + m_scene_max.y) / 2.0f;
-		m_scene_center.z = (m_scene_min.z + m_scene_max.z) / 2.0f;
-
-		m_pScene.reset(p);
-
-		res = true;
+		if (p->mNumTextures)
+		{
+			std::cout << "[ERROR][TODO] embeded textures are not handled"  << std::endl;
+		}
+		else
+		{
+			m_pScene.reset(p);
+			res = true;
+		}
 	}
 	else
 		std::cout << "[assimp error]" << aiGetErrorString() << std::endl;
 
 	m_dirPath = path.substr(0, path.find_last_of('/'));
 
-
 	return res;
 }
-
 
 unsigned int LoadCubemap()
 {
@@ -611,14 +536,13 @@ unsigned int LoadCubemap()
 	return textureID;
 } 
 
-
 void MyDrawController::RenderSkyBox(const Camera& cam)
 {
 	glDepthFunc(GL_LEQUAL);
 	skyboxShader->use();
-	glBindVertexArray(cubeVAO[0]);
+	glBindVertexArray(m_resources.cubeVAOID);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
 	glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
 	
@@ -632,3 +556,7 @@ void MyDrawController::RenderSkyBox(const Camera& cam)
 	glDepthFunc(GL_LESS);
 }
 
+void SResourceHandlers::Release()
+{
+//TODO: release resources
+}

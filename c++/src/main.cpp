@@ -71,7 +71,7 @@ int main(int, char**)
     // Setup ImGui binding
     ImGui_ImplGlfwGL3_Init(window, true);
     ImGuiIO& io = ImGui::GetIO();
-		mdc.Init();
+		mdc.Load();
 		
     bool show_test_window = true;
     bool show_another_window = false;
