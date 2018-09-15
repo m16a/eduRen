@@ -33,23 +33,23 @@ void checkKeys(MyDrawController& mdc, ImGuiIO& io)
 		const float dt = ImGui::GetIO().DeltaTime;
 		const bool haste = io.KeyShift;
 		if (io.KeysDown[GLFW_KEY_W])
-			mdc.OnKeyW(dt, haste);
+			mdc.GetInputHandler().OnKeyW(dt, haste);
 		if (io.KeysDown[GLFW_KEY_S])
-			mdc.OnKeyS(dt, haste);
+			mdc.GetInputHandler().OnKeyS(dt, haste);
 		if (io.KeysDown[GLFW_KEY_A])
-			mdc.OnKeyA(dt, haste);
+			mdc.GetInputHandler().OnKeyA(dt, haste);
 		if (io.KeysDown[GLFW_KEY_D])
-			mdc.OnKeyD(dt, haste);
+			mdc.GetInputHandler().OnKeyD(dt, haste);
 		if (io.KeysDown[GLFW_KEY_UP])
-			mdc.OnKeyUp(dt);
+			mdc.GetInputHandler().OnKeyUp(dt);
 		if (io.KeysDown[GLFW_KEY_DOWN])
-			mdc.OnKeyDown(dt);
+			mdc.GetInputHandler().OnKeyDown(dt);
 		if (io.KeysDown[GLFW_KEY_LEFT])
-			mdc.OnKeyLeft(dt);
+			mdc.GetInputHandler().OnKeyLeft(dt);
 		if (io.KeysDown[GLFW_KEY_RIGHT])
-			mdc.OnKeyRight(dt);
+			mdc.GetInputHandler().OnKeyRight(dt);
 		if (io.KeysDown[GLFW_KEY_SPACE])
-			mdc.OnKeySpace(dt);
+			mdc.GetInputHandler().OnKeySpace(dt);
 }
 
 int main(int, char**)

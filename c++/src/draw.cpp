@@ -1,4 +1,5 @@
 #include "draw.h"
+#include "input_handler.h"
 
 #include "shader.h"
 #include <iostream>
@@ -123,6 +124,10 @@ void MergeUV(const aiMesh& mesh, std::vector<glm::vec2>& res)
 		tmp[1] = mesh.mTextureCoords[0][i][1];
 		res.push_back(tmp);
 	}
+}
+
+MyDrawController::MyDrawController() : m_inputHandler(*this)
+{
 }
 
 void MyDrawController::InitLightModel()
@@ -490,13 +495,13 @@ void MyDrawController::Render(const Camera& cam)
 		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, true);
 	
 	if (!drawSkybox)
-		RenderLights(cam);
+		RenderLightModels(cam);
 
 	if (drawSkybox)
 		RenderSkyBox(cam);
 }
 
-void MyDrawController::RenderLights(const Camera& cam)
+void MyDrawController::RenderLightModels(const Camera& cam)
 {
 	glBindVertexArray(cubeVAO[0]);
 	lightModelShader->use();
@@ -526,49 +531,6 @@ void MyDrawController::RenderLights(const Camera& cam)
 	}
 }
 
-void MyDrawController::OnKeyW(float dt, bool haste)
-{
-	m_cam.ProcessKeyboard(eCameraMovement::FORWARD, dt, haste);
-}
-
-void MyDrawController::OnKeyS(float dt, bool haste)
-{
-	m_cam.ProcessKeyboard(eCameraMovement::BACKWARD, dt, haste);
-}
-
-void MyDrawController::OnKeyA(float dt, bool haste)
-{
-	m_cam.ProcessKeyboard(eCameraMovement::LEFT, dt, haste);
-}
-
-void MyDrawController::OnKeyD(float dt, bool haste)
-{
-	m_cam.ProcessKeyboard(eCameraMovement::RIGHT, dt, haste);
-}
-
-void MyDrawController::OnKeyUp(float dt)
-{
-	m_cam.ProcessRotation(eCameraMovement::PITCH_UP, dt);
-}
-
-void MyDrawController::OnKeyDown(float dt)
-{
-	m_cam.ProcessRotation(eCameraMovement::PITCH_DOWN, dt);
-}
-
-void MyDrawController::OnKeyRight(float dt)
-{
-	m_cam.ProcessRotation(eCameraMovement::YAW_RIGHT, dt);
-}
-
-void MyDrawController::OnKeyLeft(float dt)
-{
-	m_cam.ProcessRotation(eCameraMovement::YAW_LEFT, dt);
-}
-
-void MyDrawController::OnKeySpace(float dt)
-{
-}
 
 void get_bounding_box_for_node(const aiScene& scene, const aiNode* nd, aiVector3D* min,	aiVector3D* max, aiMatrix4x4* trafo)
 {
