@@ -24,9 +24,9 @@ class MyDrawController
 
 	Camera& GetCam() { return m_cam;}
 	CInputHandler& GetInputHandler() { return m_inputHandler; }
+	const aiScene* GetScene() const { return m_pScene.get(); }
 	
 	bool LoadScene(const std::string& path);
-	const aiScene* GetScene() const { return m_pScene.get(); }
 	void InitTextures(const aiScene& scene);
 	void LoadTextureForMaterial(const aiMaterial& mat);
 
@@ -48,7 +48,6 @@ class MyDrawController
 
 	private:
 	Camera m_cam;
-
 	CInputHandler m_inputHandler;
 
 	std::unique_ptr<const aiScene> m_pScene;

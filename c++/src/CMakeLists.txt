@@ -5,6 +5,7 @@ set (CMAKE_CXX_STANDARD 14)
 set(SOURCES 
 	main.cpp
 	draw.cpp
+	cube.cpp
 	input_handler.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui_demo.cpp
