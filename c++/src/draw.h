@@ -14,7 +14,7 @@
 #include <string>
 #include <array>
 
-class Shader;
+class CShader;
 constexpr const int kMaxMeshesCount = 100;
 struct SResourceHandlers
 {
@@ -59,12 +59,14 @@ class MyDrawController
 	private:
 	bool LoadScene(const std::string& path);
 	void InitLightModel();
-	void RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, bool drawNormals);
+	void RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram);
 	void RenderSkyBox(const Camera& cam);
 	void RenderLightModels(const Camera& cam);
 	void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
-	void SetupLights(Shader* currShader);
+	void SetupLights();
 	void LoadMeshesData();
+	void SetupMaterial(const aiMesh& mesh, CShader* overrideProgram);
+	void SetupProgramTransforms(const Camera& cam, const glm::mat4& model,const glm::mat4& view, const glm::mat4& proj);
 
 	private:
 	Camera m_cam;

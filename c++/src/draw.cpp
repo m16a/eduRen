@@ -21,14 +21,14 @@ bool MyDrawController::drawNormals = false;
 
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
-Shader* mainTextShader = nullptr;
-Shader* mainColShader = nullptr;
-Shader* lightModelShader = nullptr;
-Shader* skyboxShader = nullptr;
-Shader* envMapColorShader = nullptr;
-Shader* normalShader = nullptr;
+CShader* mainTextShader = nullptr;
+CShader* mainColShader = nullptr;
+CShader* lightModelShader = nullptr;
+CShader* skyboxShader = nullptr;
+CShader* envMapColorShader = nullptr;
+CShader* normalShader = nullptr;
 
-Shader* currShader = nullptr;
+CShader* currShader = nullptr;
 
 unsigned int LoadCubemap();
 
@@ -111,6 +111,70 @@ void MergeUV(const aiMesh& mesh, std::vector<glm::vec2>& res)
 	}
 }
 
+std::string GetUniformTextureName(aiTextureType type)
+{
+	switch (type)
+	{
+		case aiTextureType_DIFFUSE:
+			return "inTexture.diff";
+			break;
+		case aiTextureType_SPECULAR:
+			return "inTexture.spec";
+			break;
+		case aiTextureType_NORMALS:
+			return "inTexture.norm";
+			break;
+	}
+	
+	assert(false && "provide texture unoform name");
+	return "none";
+}
+
+unsigned int LoadCubemap()
+{
+	static std::string pathToSkyboxFolder = "/home/m16a/Documents/github/eduRen/models/skybox/skybox/";
+	static std::vector<std::string> faces = 
+	{
+			"right.jpg",
+			"left.jpg",
+			"bottom.jpg",
+			"top.jpg",
+			"front.jpg",
+			"back.jpg"
+	};
+
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrChannels;
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		stbi_set_flip_vertically_on_load(true);
+		unsigned char *data = stbi_load((pathToSkyboxFolder + faces[i]).c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+				glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+				stbi_image_free(data);
+		}
+		else
+		{
+				std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+				stbi_image_free(data);
+		}
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
+} 
+
+//=========================================================================================
+
 MyDrawController::MyDrawController() : m_inputHandler(*this)
 {
 }
@@ -130,7 +194,7 @@ void MyDrawController::InitLightModel()
 	glBindBuffer(GL_ARRAY_BUFFER, m_resources.cubeVertID);		
 	glBufferData(GL_ARRAY_BUFFER,	3 * cubeVerticiesCount * sizeof(GLfloat), cubeVertices, GL_STATIC_DRAW);
 
-	lightModelShader = new Shader("shaders/light.vert", "shaders/light.frag");
+	lightModelShader = new CShader("shaders/light.vert", "shaders/light.frag");
 
 	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition);
@@ -187,10 +251,33 @@ void MyDrawController::LoadMeshesData()
 
 }
 
+bool MyDrawController::LoadScene(const std::string& path)
+{
+	bool res = false;
+	if (const aiScene* p = aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality))
+	{
+		if (p->mNumTextures)
+		{
+			std::cout << "[ERROR][TODO] embeded textures are not handled"  << std::endl;
+		}
+		else
+		{
+			m_pScene.reset(p);
+			res = true;
+		}
+	}
+	else
+		std::cout << "[assimp error]" << aiGetErrorString() << std::endl;
+
+	m_dirPath = path.substr(0, path.find_last_of('/'));
+
+	return res;
+}
+
 void MyDrawController::Load(void)
 {
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
@@ -200,83 +287,103 @@ void MyDrawController::Load(void)
 
 	LoadMeshesData();
 
-	mainTextShader = new Shader("shaders/main_textured.vert", "shaders/main_textured.frag");
-	mainColShader = new Shader("shaders/main_col.vert", "shaders/main_col.frag");
-	skyboxShader  = new Shader("shaders/skybox.vert", "shaders/skybox.frag");
-	envMapColorShader = new Shader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
-	normalShader = new Shader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
+	mainTextShader = new CShader("shaders/main_textured.vert", "shaders/main_textured.frag");
+	mainColShader = new CShader("shaders/main_col.vert", "shaders/main_col.frag");
+	skyboxShader  = new CShader("shaders/skybox.vert", "shaders/skybox.frag");
+	envMapColorShader = new CShader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
+	normalShader = new CShader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
 
 	InitLightModel();
 	m_resources.skyboxTextID = LoadCubemap();
 }
 
-void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, bool _drawNormals)
+void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx)
 {
-	aiMatrix4x4 m = nd->mTransformation;
-	glm::mat4 model = aiMatrix4x4ToGlm(&m);
+	//lazy loading textures
+	unsigned int texCnt = mat.GetTextureCount(type);
+	assert(texCnt <= 1);
 
-	for (int i=0; i < nd->mNumMeshes; ++i) 
+	for (int i=0; i<texCnt; ++i)
 	{
-		const aiMesh* mesh = scene.mMeshes[nd->mMeshes[i]];
-		assert(mesh);
-
-		//material setup
-		if (m_pScene->mNumMaterials)
+		aiString path;
+		if (!mat.GetTexture(type, i, &path))
 		{
-			unsigned int matIndx = mesh->mMaterialIndex;
-			//std::cout << "matIndx: " << matIndx << std::endl;
-			const aiMaterial& mat = *m_pScene->mMaterials[matIndx];
+			auto it = m_resources.texturePathToID.find(std::string(path.C_Str()));
+			GLuint id = 0;
 
-			if (_drawNormals)
+			if (it == m_resources.texturePathToID.end())
 			{
-				currShader = normalShader;
-			}
-			else if (drawSkybox)
-			{
-				currShader = envMapColorShader;
+				id = TextureFromFile(path.C_Str(), m_dirPath);
+				m_resources.texturePathToID[std::string(path.C_Str())] = id;
 			}
 			else
-			{
-				if (mat.GetTextureCount(aiTextureType_DIFFUSE))
-					currShader = mainTextShader;
-				else
-					currShader = mainColShader;
-			}
-			
-			currShader->use();
+				id = it->second;
 
-			if (mat.GetTextureCount(aiTextureType_DIFFUSE))
-			{
-				BindTexture(mat, aiTextureType_DIFFUSE, 0);
-				BindTexture(mat, aiTextureType_SPECULAR, 1);
-				//BindTexture(mat, aiTextureType_NORMALS, 2);
-			}
-			else
-			{
-				aiColor3D col;
+			glActiveTexture(GL_TEXTURE0 + startIndx);
+			currShader->setInt(GetUniformTextureName(type).c_str(), i);
+			glBindTexture(GL_TEXTURE_2D, id);
 
-				if (!mat.Get(AI_MATKEY_COLOR_AMBIENT, col))
-					currShader->setVec3("material.ambient", col[0], col[1], col[2]);
-
-				if (!mat.Get(AI_MATKEY_COLOR_DIFFUSE, col))
-					currShader->setVec3("material.diffuse", col[0], col[1], col[2]);
-
-				if (!mat.Get(AI_MATKEY_COLOR_SPECULAR, col))
-					currShader->setVec3("material.specular", col[0], col[1], col[2]);
-
-				float shininess; 
-				if (!mat.Get(AI_MATKEY_SHININESS, shininess))
-					currShader->setFloat("material.shininess", shininess);
-			}
 		}
 		else
-			assert(false && "no materials");
-		
-		glBindVertexArray(m_resources.VAOs[nd->mMeshes[i]]);
-		
-		glm::mat4 proj = cam.GetProjMatrix();
-		glm::mat4 view = cam.GetViewMatrix();
+		{
+			std::cout << "Texture reading fail\n";
+		}
+	}
+}
 
+void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgram)
+{
+	assert(GetScene()->mNumMaterials);
+
+	unsigned int matIndx = mesh.mMaterialIndex;
+		//std::cout << "matIndx: " << matIndx << std::endl;
+	const aiMaterial& material = *m_pScene->mMaterials[matIndx];
+
+	if (overrideProgram)
+	{
+		currShader = overrideProgram;
+	}
+	else if (drawSkybox)
+	{
+		currShader = envMapColorShader;
+	}
+	else
+	{
+		if (material.GetTextureCount(aiTextureType_DIFFUSE))
+			currShader = mainTextShader;
+		else
+			currShader = mainColShader;
+	}
+	
+	currShader->use();
+
+	if (material.GetTextureCount(aiTextureType_DIFFUSE))
+	{
+		BindTexture(material, aiTextureType_DIFFUSE, 0);
+		BindTexture(material, aiTextureType_SPECULAR, 1);
+		//BindTexture(material, aiTextureType_NORMALS, 2);
+	}
+	else
+	{
+		aiColor3D col;
+
+		if (!material.Get(AI_MATKEY_COLOR_AMBIENT, col))
+			currShader->setVec3("material.ambient", col[0], col[1], col[2]);
+
+		if (!material.Get(AI_MATKEY_COLOR_DIFFUSE, col))
+			currShader->setVec3("material.diffuse", col[0], col[1], col[2]);
+
+		if (!material.Get(AI_MATKEY_COLOR_SPECULAR, col))
+			currShader->setVec3("material.specular", col[0], col[1], col[2]);
+
+		float shininess; 
+		if (!material.Get(AI_MATKEY_SHININESS, shininess))
+			currShader->setFloat("material.shininess", shininess);
+	}
+}
+
+void MyDrawController::SetupProgramTransforms(const Camera& cam, const glm::mat4& model,const glm::mat4& view, const glm::mat4& proj)
+{
 		currShader->setMat4("model", model);
 		currShader->setMat4("view", view);
 		currShader->setMat4("proj", proj);
@@ -287,21 +394,36 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, c
 				glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(1, 0, 0));
 				currShader->setMat4("rotfix", rot);
 		}
+}
 
-		SetupLights(currShader);
+void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram)
+{
+	aiMatrix4x4 m = nd->mTransformation;
+	glm::mat4 model = aiMatrix4x4ToGlm(&m);
+	glm::mat4 view = cam.GetViewMatrix();
+	glm::mat4 proj = cam.GetProjMatrix();
 
+	for (int i=0; i < nd->mNumMeshes; ++i) 
+	{
+		const aiMesh* pMesh = scene.mMeshes[nd->mMeshes[i]];
+		assert(pMesh);
+
+		SetupMaterial(*pMesh, overrideProgram);
+		SetupLights();
+		SetupProgramTransforms(cam, model, view, proj);
+		
 		GLint size = 0;
-
+		glBindVertexArray(m_resources.VAOs[nd->mMeshes[i]]);
 		glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
 		glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
 	}
 
 	for (int i = 0; i < nd->mNumChildren; ++i) {
-		RecursiveRender(scene, nd->mChildren[i], cam, _drawNormals);
+		RecursiveRender(scene, nd->mChildren[i], cam, overrideProgram);
 	}
 }
 
-void MyDrawController::SetupLights(Shader* currShader)
+void MyDrawController::SetupLights()
 {
 	if (drawSkybox)
 	{
@@ -364,74 +486,20 @@ void MyDrawController::SetupLights(Shader* currShader)
 		else
 			currShader->setVec3(lightI + "specular", glm::vec3());
 		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
-		
 	}
 
 	currShader->setInt("nPointLights", pointLightIndx);
 	currShader->setInt("nDirLights", dirLightIndx);
 }
 
-std::string GetUniformTextureName(aiTextureType type)
-{
-	switch (type)
-	{
-		case aiTextureType_DIFFUSE:
-			return "inTexture.diff";
-			break;
-		case aiTextureType_SPECULAR:
-			return "inTexture.spec";
-			break;
-		case aiTextureType_NORMALS:
-			return "inTexture.norm";
-			break;
-	}
-	
-	assert(false && "provide texture unoform name");
-	return "none";
-}
-
-void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx)
-{
-	//lazy loading textures
-	unsigned int texCnt = mat.GetTextureCount(type);
-	assert(texCnt <= 1);
-
-	for (int i=0; i<texCnt; ++i)
-	{
-		aiString path;
-		if (!mat.GetTexture(type, i, &path))
-		{
-			auto it = m_resources.texturePathToID.find(std::string(path.C_Str()));
-			GLuint id = 0;
-
-			if (it == m_resources.texturePathToID.end())
-			{
-				id = TextureFromFile(path.C_Str(), m_dirPath);
-				m_resources.texturePathToID[std::string(path.C_Str())] = id;
-			}
-			else
-				id = it->second;
-
-			glActiveTexture(GL_TEXTURE0 + startIndx);
-			currShader->setInt(GetUniformTextureName(type).c_str(), i);
-			glBindTexture(GL_TEXTURE_2D, id);
-
-		}
-		else
-		{
-			std::cout << "Texture reading fail\n";
-		}
-	}
-}
-
 void MyDrawController::Render(const Camera& cam)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
-	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, false);
+	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr);
 
 	if (drawNormals)
-		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, true);
+		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader);
 	
 	if (!drawSkybox)
 		RenderLightModels(cam);
@@ -469,72 +537,6 @@ void MyDrawController::RenderLightModels(const Camera& cam)
 		glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
 	}
 }
-
-bool MyDrawController::LoadScene(const std::string& path)
-{
-	bool res = false;
-	if (const aiScene* p = aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality))
-	{
-		if (p->mNumTextures)
-		{
-			std::cout << "[ERROR][TODO] embeded textures are not handled"  << std::endl;
-		}
-		else
-		{
-			m_pScene.reset(p);
-			res = true;
-		}
-	}
-	else
-		std::cout << "[assimp error]" << aiGetErrorString() << std::endl;
-
-	m_dirPath = path.substr(0, path.find_last_of('/'));
-
-	return res;
-}
-
-unsigned int LoadCubemap()
-{
-	static std::string pathToSkyboxFolder = "/home/m16a/Documents/github/eduRen/models/skybox/skybox/";
-	static std::vector<std::string> faces = 
-	{
-			"right.jpg",
-			"left.jpg",
-			"bottom.jpg",
-			"top.jpg",
-			"front.jpg",
-			"back.jpg"
-	};
-
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-	int width, height, nrChannels;
-	for (unsigned int i = 0; i < faces.size(); i++)
-	{
-		stbi_set_flip_vertically_on_load(true);
-		unsigned char *data = stbi_load((pathToSkyboxFolder + faces[i]).c_str(), &width, &height, &nrChannels, 0);
-		if (data)
-		{
-				glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-				stbi_image_free(data);
-		}
-		else
-		{
-				std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
-				stbi_image_free(data);
-		}
-	}
-
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	return textureID;
-} 
 
 void MyDrawController::RenderSkyBox(const Camera& cam)
 {

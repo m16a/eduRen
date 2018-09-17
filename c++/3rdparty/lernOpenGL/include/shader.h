@@ -9,11 +9,11 @@
 #include <iostream>
 #include <cassert>
 
-class Shader
+class CShader
 {
 public:
     unsigned int ID;
-    Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
+    CShader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
     {
         unsigned int vertex, fragment, geometry;
         vertex = loadShader(GL_VERTEX_SHADER, vertexPath);
