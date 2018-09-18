@@ -20,3 +20,4 @@ void main()
 	TexCoords = vTexCoord;
 	gl_Position = proj * view * model * vPosition;
 }
+

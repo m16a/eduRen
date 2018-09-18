@@ -4,7 +4,6 @@ in vec3 Normal;
 in vec3 FragPos;
 in vec2 TexCoords;
 
-
 struct PointLight
 {
 	vec3 pos;
@@ -50,9 +49,13 @@ struct Texture
 	sampler2D diff;
 	sampler2D spec;
 	sampler2D norm;
+	sampler2D reflection;
 };
 
 uniform Texture inTexture;
+
+uniform samplerCube skybox;
+uniform mat4 rotfix;
 
 uniform mat4 model;
 
@@ -89,10 +92,27 @@ subroutine (baseColor) Color textColor(vec2 uv)
 	c.shininess = 16;
 	return c;
 }
-
-// ---------------------- subroutines ------------------------
-
 subroutine uniform baseColor baseColorSelection;
+
+subroutine vec3 reflectionMap(vec2 uv);
+subroutine (reflectionMap) vec3 emptyReflectionMap(vec2 uv)
+{
+	return vec3(0.0, 0.0, 0.0);
+}
+
+subroutine (reflectionMap) vec3 reflectionTexture(vec2 uv)
+{
+	//return vec3(1.0, 0.0, 0.0);
+	vec3 I = normalize(FragPos - camPos);
+	vec3 R = reflect(I, normalize(Normal));
+	R = normalize(vec3( rotfix * vec4(R, 0.0)));
+	return texture(inTexture.reflection, uv).rgb * texture(skybox, R).rgb;
+}
+
+subroutine uniform reflectionMap reflectionMapSelection;
+
+// -----------------------------------------------------------
+
 
 vec3 CalcPointLight(Color baseColor, PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
@@ -145,13 +165,16 @@ void main()
 	vec3 viewDir = normalize(camPos - FragPos);
 
 	Color baseColor = baseColorSelection(TexCoords);
-	//Color baseColor = plainColor(TexCoords);
 
 	for (int i = 0; i < nPointLights; i++)
 		res += CalcPointLight(baseColor, pointLights[i], norm, FragPos, viewDir); 
 
 	for (int i = 0; i < nDirLights; i++)
 		res += CalcDirLight(baseColor, dirLights[i], norm, FragPos, viewDir); 
+
+	//res += emptyReflectionMap(TexCoords);
+	res += reflectionMapSelection(TexCoords); 
+	//res += reflectionMapSelection(TexCoords); 
 
 	fColor = vec4(res, 1.0);
 	//fColor = vec4(norm, 1.0);

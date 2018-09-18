@@ -24,7 +24,6 @@ enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 CShader* mainShader = nullptr;
 CShader* lightModelShader = nullptr;
 CShader* skyboxShader = nullptr;
-CShader* envMapColorShader = nullptr;
 CShader* normalShader = nullptr;
 
 CShader* currShader = nullptr;
@@ -120,6 +119,9 @@ std::string GetUniformTextureName(aiTextureType type)
 			break;
 		case aiTextureType_NORMALS:
 			return "inTexture.norm";
+			break;
+		case aiTextureType_AMBIENT:
+			return "inTexture.reflection";
 			break;
 	}
 	
@@ -280,12 +282,11 @@ void MyDrawController::Load()
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
-	assert(res || "cannot load scene");
+	assert(res && "cannot load scene");
 
 	LoadMeshesData();
 	mainShader = new CShader("shaders/main.vert", "shaders/main.frag");
 	skyboxShader  = new CShader("shaders/skybox.vert", "shaders/skybox.frag");
-	envMapColorShader = new CShader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
 	normalShader = new CShader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
 
 	InitLightModel();
@@ -335,8 +336,6 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 
 	if (overrideProgram)
 		currShader = overrideProgram;
-	else if (drawSkybox)
-		currShader = envMapColorShader;
 	else
 		currShader = mainShader;
 	
@@ -344,17 +343,18 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 
 	if (currShader == mainShader)
 	{
+		CShader::TSubroutineTypeToInstance data;
 		if (material.GetTextureCount(aiTextureType_DIFFUSE))
 		{
-			currShader->setSubroutine(GL_FRAGMENT_SHADER, "baseColorSelection", "textColor");
-
+			data.push_back(std::pair<std::string, std::string>("baseColorSelection", "textColor"));
 			BindTexture(material, aiTextureType_DIFFUSE, 0);
 			BindTexture(material, aiTextureType_SPECULAR, 1);
+			BindTexture(material, aiTextureType_AMBIENT, 2);
 			//BindTexture(material, aiTextureType_NORMALS, 2);
 		}
 		else
 		{
-			currShader->setSubroutine(GL_FRAGMENT_SHADER, "baseColorSelection", "plainColor");
+			data.push_back(std::pair<std::string, std::string>("baseColorSelection", "plainColor"));
 			aiColor3D col;
 
 			if (!material.Get(AI_MATKEY_COLOR_AMBIENT, col))
@@ -370,6 +370,23 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 			if (!material.Get(AI_MATKEY_SHININESS, shininess))
 				currShader->setFloat("material.shininess", shininess);
 		}
+
+		/*
+		if (drawSkybox)
+		{
+			if (0 && material.GetTextureCount(aiTextureType_AMBIENT))
+				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "reflectionTexture"));
+			else
+				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "emptyReflectionMap"));
+		}
+		else
+				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "emptyReflectionMap"));
+
+		*/
+			//	data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "reflectionTexture"));
+		data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "emptyReflectionMap"));
+
+		currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
 	}
 }
 
@@ -420,8 +437,6 @@ void MyDrawController::SetupLights()
 	{
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
-
-		return;
 	}
 
 	int pointLightIndx = 0;
@@ -492,7 +507,7 @@ void MyDrawController::Render(const Camera& cam)
 	if (drawNormals)
 		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader);
 	
-	if (!drawSkybox)
+	//if (!drawSkybox)
 		RenderLightModels(cam);
 
 	if (drawSkybox)

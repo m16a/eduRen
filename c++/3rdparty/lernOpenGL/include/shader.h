@@ -102,11 +102,31 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
     }
     // ------------------------------------------------------------------------
-		void setSubroutine(GLenum programType, const std::string &subType, const std::string &subInstance)
+		
+		using TSubroutineTypeToInstance = std::vector<std::pair<std::string, std::string>>;
+		void setSubroutine(GLenum programType, const TSubroutineTypeToInstance& data)
+		//void setSubroutine(GLenum programType, const std::string &subType, const std::string &subInstance)
 		{
-			GLuint index = glGetSubroutineIndex(ID, programType, subInstance.c_str());
-			GLuint selectorLoc = glGetSubroutineUniformLocation(ID, programType, subType.c_str());
-			glUniformSubroutinesuiv(programType, 1, &index);
+			GLint subUniformsCount = 0;
+			glGetProgramStageiv(ID, programType, GL_ACTIVE_SUBROUTINE_UNIFORM_LOCATIONS, &subUniformsCount);
+			//std::cout << subUniformsCount << std::endl;
+			assert(subUniformsCount && "no subroutine uniforms");
+			assert(subUniformsCount == data.size() && "subroutime uniforms count mismatch");
+			std::vector<GLuint> indices(subUniformsCount);
+			
+			for ( auto& p : data)
+			{
+				GLint selectorLoc = glGetSubroutineUniformLocation(ID, programType, p.first.c_str());
+				GLuint index = glGetSubroutineIndex(ID, programType, p.second.c_str());
+				std::cout << p.first << ":" << selectorLoc << " " << p.second << ":" << index << std::endl;
+				assert(selectorLoc > -1 && "bad subroutine uniform location");
+				assert(index != GL_INVALID_INDEX && "bad subroutine index");
+
+				indices[selectorLoc] = index;
+			}
+			
+
+			glUniformSubroutinesuiv(programType, subUniformsCount, indices.data());
 		}
 
 	private:
