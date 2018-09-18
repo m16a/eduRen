@@ -101,6 +101,13 @@ public:
     {
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
     }
+    // ------------------------------------------------------------------------
+		void setSubroutine(GLenum programType, const std::string &subType, const std::string &subInstance)
+		{
+			GLuint index = glGetSubroutineIndex(ID, programType, subInstance.c_str());
+			GLuint selectorLoc = glGetSubroutineUniformLocation(ID, programType, subType.c_str());
+			glUniformSubroutinesuiv(programType, 1, &index);
+		}
 
 	private:
 		std::string shaderTypeToStr(GLenum type)

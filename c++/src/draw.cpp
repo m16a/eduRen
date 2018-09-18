@@ -21,16 +21,13 @@ bool MyDrawController::drawNormals = false;
 
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
-CShader* mainTextShader = nullptr;
-CShader* mainColShader = nullptr;
+CShader* mainShader = nullptr;
 CShader* lightModelShader = nullptr;
 CShader* skyboxShader = nullptr;
 CShader* envMapColorShader = nullptr;
 CShader* normalShader = nullptr;
 
 CShader* currShader = nullptr;
-
-unsigned int LoadCubemap();
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
@@ -274,7 +271,7 @@ bool MyDrawController::LoadScene(const std::string& path)
 	return res;
 }
 
-void MyDrawController::Load(void)
+void MyDrawController::Load()
 {
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
@@ -286,9 +283,7 @@ void MyDrawController::Load(void)
 	assert(res || "cannot load scene");
 
 	LoadMeshesData();
-
-	mainTextShader = new CShader("shaders/main_textured.vert", "shaders/main_textured.frag");
-	mainColShader = new CShader("shaders/main_col.vert", "shaders/main_col.frag");
+	mainShader = new CShader("shaders/main.vert", "shaders/main.frag");
 	skyboxShader  = new CShader("shaders/skybox.vert", "shaders/skybox.frag");
 	envMapColorShader = new CShader("shaders/env_map_color.vert", "shaders/env_map_color.frag");
 	normalShader = new CShader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
@@ -322,7 +317,6 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 			glActiveTexture(GL_TEXTURE0 + startIndx);
 			currShader->setInt(GetUniformTextureName(type).c_str(), i);
 			glBindTexture(GL_TEXTURE_2D, id);
-
 		}
 		else
 		{
@@ -340,45 +334,42 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 	const aiMaterial& material = *m_pScene->mMaterials[matIndx];
 
 	if (overrideProgram)
-	{
 		currShader = overrideProgram;
-	}
 	else if (drawSkybox)
-	{
 		currShader = envMapColorShader;
-	}
 	else
-	{
-		if (material.GetTextureCount(aiTextureType_DIFFUSE))
-			currShader = mainTextShader;
-		else
-			currShader = mainColShader;
-	}
+		currShader = mainShader;
 	
 	currShader->use();
 
-	if (material.GetTextureCount(aiTextureType_DIFFUSE))
+	if (currShader == mainShader)
 	{
-		BindTexture(material, aiTextureType_DIFFUSE, 0);
-		BindTexture(material, aiTextureType_SPECULAR, 1);
-		//BindTexture(material, aiTextureType_NORMALS, 2);
-	}
-	else
-	{
-		aiColor3D col;
+		if (material.GetTextureCount(aiTextureType_DIFFUSE))
+		{
+			currShader->setSubroutine(GL_FRAGMENT_SHADER, "baseColorSelection", "textColor");
 
-		if (!material.Get(AI_MATKEY_COLOR_AMBIENT, col))
-			currShader->setVec3("material.ambient", col[0], col[1], col[2]);
+			BindTexture(material, aiTextureType_DIFFUSE, 0);
+			BindTexture(material, aiTextureType_SPECULAR, 1);
+			//BindTexture(material, aiTextureType_NORMALS, 2);
+		}
+		else
+		{
+			currShader->setSubroutine(GL_FRAGMENT_SHADER, "baseColorSelection", "plainColor");
+			aiColor3D col;
 
-		if (!material.Get(AI_MATKEY_COLOR_DIFFUSE, col))
-			currShader->setVec3("material.diffuse", col[0], col[1], col[2]);
+			if (!material.Get(AI_MATKEY_COLOR_AMBIENT, col))
+				currShader->setVec3("material.ambient", col[0], col[1], col[2]);
 
-		if (!material.Get(AI_MATKEY_COLOR_SPECULAR, col))
-			currShader->setVec3("material.specular", col[0], col[1], col[2]);
+			if (!material.Get(AI_MATKEY_COLOR_DIFFUSE, col))
+				currShader->setVec3("material.diffuse", col[0], col[1], col[2]);
 
-		float shininess; 
-		if (!material.Get(AI_MATKEY_SHININESS, shininess))
-			currShader->setFloat("material.shininess", shininess);
+			if (!material.Get(AI_MATKEY_COLOR_SPECULAR, col))
+				currShader->setVec3("material.specular", col[0], col[1], col[2]);
+
+			float shininess; 
+			if (!material.Get(AI_MATKEY_SHININESS, shininess))
+				currShader->setFloat("material.shininess", shininess);
+		}
 	}
 }
 
