@@ -297,7 +297,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 {
 	//lazy loading textures
 	unsigned int texCnt = mat.GetTextureCount(type);
-	assert(texCnt <= 1);
+	assert(texCnt <= 1 && "multiple textures for one type is not supported");
 
 	for (int i=0; i<texCnt; ++i)
 	{
@@ -316,7 +316,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 				id = it->second;
 
 			glActiveTexture(GL_TEXTURE0 + startIndx);
-			currShader->setInt(GetUniformTextureName(type).c_str(), i);
+			currShader->setInt(GetUniformTextureName(type).c_str(), startIndx);
 			glBindTexture(GL_TEXTURE_2D, id);
 		}
 		else
@@ -350,7 +350,7 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 			BindTexture(material, aiTextureType_DIFFUSE, 0);
 			BindTexture(material, aiTextureType_SPECULAR, 1);
 			BindTexture(material, aiTextureType_AMBIENT, 2);
-			//BindTexture(material, aiTextureType_NORMALS, 2);
+			BindTexture(material, aiTextureType_NORMALS, 3);
 		}
 		else
 		{
@@ -371,20 +371,19 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 				currShader->setFloat("material.shininess", shininess);
 		}
 
-		/*
 		if (drawSkybox)
 		{
-			if (0 && material.GetTextureCount(aiTextureType_AMBIENT))
+			if (material.GetTextureCount(aiTextureType_AMBIENT))
 				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "reflectionTexture"));
+			else if (!material.GetTextureCount(aiTextureType_DIFFUSE))
+				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "reflectionColor"));
 			else
 				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "emptyReflectionMap"));
 		}
 		else
 				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "emptyReflectionMap"));
 
-		*/
 			//	data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "reflectionTexture"));
-		data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "emptyReflectionMap"));
 
 		currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
 	}
@@ -433,9 +432,10 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, c
 
 void MyDrawController::SetupLights()
 {
-	if (drawSkybox)
+	//if (drawSkybox)//TODO:understand why
 	{
-		glActiveTexture(GL_TEXTURE0);
+		glActiveTexture(GL_TEXTURE0 + 4);
+		currShader->setInt("skybox", 4);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 	}
 
@@ -549,7 +549,9 @@ void MyDrawController::RenderSkyBox(const Camera& cam)
 	glDepthFunc(GL_LEQUAL);
 	skyboxShader->use();
 	glBindVertexArray(m_resources.cubeVAOID);
-	glActiveTexture(GL_TEXTURE0);
+
+	glActiveTexture(GL_TEXTURE0 + 4);
+	currShader->setInt("skybox", 4);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
 	glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));

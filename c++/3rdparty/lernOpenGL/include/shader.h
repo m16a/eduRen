@@ -118,7 +118,7 @@ public:
 			{
 				GLint selectorLoc = glGetSubroutineUniformLocation(ID, programType, p.first.c_str());
 				GLuint index = glGetSubroutineIndex(ID, programType, p.second.c_str());
-				std::cout << p.first << ":" << selectorLoc << " " << p.second << ":" << index << std::endl;
+				//std::cout << p.first << ":" << selectorLoc << " " << p.second << ":" << index << std::endl;
 				assert(selectorLoc > -1 && "bad subroutine uniform location");
 				assert(index != GL_INVALID_INDEX && "bad subroutine index");
 
