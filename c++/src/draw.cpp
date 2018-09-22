@@ -300,8 +300,9 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 	unsigned int texCnt = mat.GetTextureCount(type);
 	assert(texCnt <= 1 && "multiple textures for one type is not supported");
 
-	for (int i=0; i<texCnt; ++i)
+	if (texCnt)
 	{
+		int i = 0;
 		aiString path;
 		if (!mat.GetTexture(type, i, &path))
 		{
@@ -324,6 +325,12 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 		{
 			std::cout << "Texture reading fail\n";
 		}
+	}
+	else
+	{
+		glActiveTexture(GL_TEXTURE0 + startIndx);
+		currShader->setInt(GetUniformTextureName(type).c_str(), startIndx);
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 }
 

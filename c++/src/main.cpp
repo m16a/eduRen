@@ -119,8 +119,6 @@ int main(int, char**)
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
 
-		std::cout << "offScrFB:" << offscreenTextID << " offText: " << offscreenTextID << " offRbo: " << rbo << std::endl;
-		//
     // configure second post-processing framebuffer
     unsigned int intermediateFBO;
     glGenFramebuffers(1, &intermediateFBO);
@@ -226,10 +224,14 @@ int main(int, char**)
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
 
-				glBindFramebuffer(GL_FRAMEBUFFER, offscreenFB);
+				if (MyDrawController::isMSAA)
+					glBindFramebuffer(GL_FRAMEBUFFER, offscreenFB);
+				else
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         glViewport(0, 0, display_w, display_h);
 
-				const GLsizei samplesCnt = MyDrawController::isMSAA ? 4 : 0;
+				
 
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 				glEnable(GL_DEPTH_TEST);
@@ -243,23 +245,26 @@ int main(int, char**)
 				mdc.Render(cam);
 
 				//draw offscreen to screen
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreenFB);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
-        glBlitFramebuffer(0, 0, display_w, display_h, 0, 0, display_w, display_h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+				if (MyDrawController::isMSAA)
+				{
+					glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreenFB);
+					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
+					glBlitFramebuffer(0, 0, display_w, display_h, 0, 0, display_w, display_h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-        //now render quad with scene's visuals as its texture image
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDisable(GL_DEPTH_TEST);
+					//now render quad with scene's visuals as its texture image
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+					glClear(GL_COLOR_BUFFER_BIT);
+					glDisable(GL_DEPTH_TEST);
 
-				offToBackShader.use();
-				glActiveTexture(GL_TEXTURE0);
-				offToBackShader.setInt("screenTexture", 0);
-        glBindTexture(GL_TEXTURE_2D, screenTexture);	// use the color attachment texture as the texture of the quad plane
-				
-			  glBindVertexArray(quadVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);	
+					offToBackShader.use();
+					glActiveTexture(GL_TEXTURE0);
+					offToBackShader.setInt("screenTexture", 0);
+					glBindTexture(GL_TEXTURE_2D, screenTexture);	// use the color attachment texture as the texture of the quad plane
+					
+					glBindVertexArray(quadVAO);
+					glDrawArrays(GL_TRIANGLES, 0, 6);	
+				}
 
         ImGui::Render();
         glfwSwapBuffers(window);
