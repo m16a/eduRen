@@ -55,6 +55,7 @@ class MyDrawController
 	static bool isSpecular;
 	static bool drawSkybox;
 	static bool drawNormals;
+	static bool isMSAA;
 
 	private:
 	bool LoadScene(const std::string& path);

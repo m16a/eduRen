@@ -18,6 +18,7 @@ bool MyDrawController::isDiffuse = true;
 bool MyDrawController::isSpecular = true;
 bool MyDrawController::drawSkybox = false;
 bool MyDrawController::drawNormals = false;
+bool MyDrawController::isMSAA = false;
 
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
