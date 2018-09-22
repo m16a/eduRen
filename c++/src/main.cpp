@@ -89,6 +89,15 @@ int main(int, char**)
 		duration<float> timeSpan;
 		bool clamp60FPS = true;
 
+		GLuint offscreenFB;
+		glGenFramebuffers(1, &offscreenFB);
+		glBindFramebuffer(GL_FRAMEBUFFER, offscreenFB);
+
+		GLuint offscreenRBO;
+		glGenRenderbuffers(1, &offscreenRBO);
+
+		glBindFramebuffer(GL_RENDERBUFFER, offscreenRBO);
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -164,16 +173,27 @@ int main(int, char**)
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
+
+				glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, display_w, display_h);
+				glBindRenderbuffer(GL_RENDERBUFFER, 0);
+				glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, offscreenRBO);
+
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 				glEnable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 			
-				glEnable(GL_CULL_FACE); // cull face
-				glCullFace(GL_BACK); // cull back face
+				glEnable(GL_CULL_FACE);
+				glCullFace(GL_BACK);
 
 				cam.Width = display_w;
 				cam.Height = display_h;
 				mdc.Render(cam);
+
+				//copy offscreen to back
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreenFB);
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+				glBlitFramebuffer(0, 0, display_w, display_h, 0, 0, display_w, display_h, GL_COLOR_BUFFER_BIT, GL_NEAREST); 
+
         ImGui::Render();
         glfwSwapBuffers(window);
 
