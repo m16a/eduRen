@@ -20,6 +20,22 @@
 
 static const int WINDOW_WIDTH = 1280;
 static const int WINDOW_HEIGHT = 800;
+static int sWinWidth = WINDOW_WIDTH;
+static int sWinHeight = WINDOW_HEIGHT;
+
+
+struct SOffscreenRenderIDs
+{
+		GLuint FB;//framebuffer
+		GLuint textID;
+    GLuint rbo;//render buffer object
+
+		GLuint intermediateFB;
+		GLuint screenTextID;
+};
+
+static SOffscreenRenderIDs offscreen;
+static bool sNeedUpdateOffscreenIds = true;
 
 float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
         // positions   // texCoords
@@ -61,6 +77,61 @@ void checkKeys(MyDrawController& mdc, ImGuiIO& io)
 			mdc.GetInputHandler().OnKeySpace(dt);
 }
 
+static void windowSizeChanged(GLFWwindow* window, int width, int height)
+{
+	sWinWidth = width;
+	sWinHeight = height;
+	sNeedUpdateOffscreenIds = true;
+}
+
+static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int h)
+{
+	if (!sNeedUpdateOffscreenIds)
+		return;
+
+	if (glCheckFramebufferStatus(offscreen.FB) == GL_INVALID_ENUM)
+		glGenFramebuffers(1, &offscreen.FB);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
+
+	if (glIsTexture(offscreen.textID))
+	{
+		glDeleteTextures(1, &offscreen.textID);
+		glDeleteRenderbuffers(1, &offscreen.rbo);//bad :(
+	}
+
+	glGenTextures(1, &offscreen.textID);
+
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, w, h, GL_TRUE);
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID, 0);
+
+	glGenRenderbuffers(1, &offscreen.rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, offscreen.rbo);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, w, h); // use a single renderbuffer object for both a depth AND stencil buffer.
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, offscreen.rbo); // now actually attach it
+
+	// configure second post-processing framebuffer
+	if (glCheckFramebufferStatus(offscreen.intermediateFB) == GL_INVALID_ENUM)
+		glGenFramebuffers(1, &offscreen.intermediateFB);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, offscreen.intermediateFB);
+
+	if (glIsTexture(offscreen.screenTextID))
+		glDeleteTextures(1, &offscreen.screenTextID);
+
+	glGenTextures(1, &offscreen.screenTextID);
+	glBindTexture(GL_TEXTURE_2D, offscreen.screenTextID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, offscreen.screenTextID, 0);
+
+	sNeedUpdateOffscreenIds = false;
+}
+
 int main(int, char**)
 {
 		using namespace std::chrono;
@@ -73,9 +144,10 @@ int main(int, char**)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "eduRen", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(sWinWidth, sWinHeight, "eduRen", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
+		glfwSetWindowSizeCallback(window, windowSizeChanged);
 
 		gl3wInit();
 		MyDrawController mdc;
@@ -101,41 +173,11 @@ int main(int, char**)
 		duration<float> timeSpan;
 		bool clamp60FPS = true;
 
-		GLuint offscreenFB;
-		glGenFramebuffers(1, &offscreenFB);
-		glBindFramebuffer(GL_FRAMEBUFFER, offscreenFB);
-
-		GLuint offscreenTextID;
-		glGenTextures(1, &offscreenTextID);
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, offscreenTextID);
-		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, WINDOW_WIDTH, WINDOW_HEIGHT, GL_TRUE);
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, offscreenTextID, 0);
-
-    unsigned int rbo;
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, WINDOW_WIDTH, WINDOW_HEIGHT); // use a single renderbuffer object for both a depth AND stencil buffer.
-		glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
-
-    // configure second post-processing framebuffer
-    unsigned int intermediateFBO;
-    glGenFramebuffers(1, &intermediateFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
-
-    unsigned int screenTexture;
-    glGenTextures(1, &screenTexture);
-    glBindTexture(GL_TEXTURE_2D, screenTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTexture, 0);
 
 		CShader offToBackShader("shaders/screen.vert", "shaders/screen.frag");
 		//
     // screen quad VAO
-    unsigned int quadVAO, quadVBO;
+    GLuint quadVAO, quadVBO;
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
     glBindVertexArray(quadVAO);
@@ -220,12 +262,12 @@ int main(int, char**)
         }
 
         // Rendering
-
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
+				UpdateOffscreenRenderIDs(offscreen, display_w, display_h);
 
 				if (MyDrawController::isMSAA)
-					glBindFramebuffer(GL_FRAMEBUFFER, offscreenFB);
+					glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
 				else
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -240,16 +282,16 @@ int main(int, char**)
 				glEnable(GL_CULL_FACE);
 				glCullFace(GL_BACK);
 
-				cam.Width = display_w;
-				cam.Height = display_h;
+				cam.Width = sWinWidth;
+				cam.Height = sWinHeight;
 				mdc.Render(cam);
 
 				//draw offscreen to screen
 				if (MyDrawController::isMSAA)
 				{
-					glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreenFB);
-					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
-					glBlitFramebuffer(0, 0, display_w, display_h, 0, 0, display_w, display_h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+					glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
+					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, offscreen.intermediateFB);
+					glBlitFramebuffer(0, 0, sWinWidth, sWinHeight, 0, 0, sWinWidth, sWinHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 					//now render quad with scene's visuals as its texture image
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -260,7 +302,7 @@ int main(int, char**)
 					offToBackShader.use();
 					glActiveTexture(GL_TEXTURE0);
 					offToBackShader.setInt("screenTexture", 0);
-					glBindTexture(GL_TEXTURE_2D, screenTexture);	// use the color attachment texture as the texture of the quad plane
+					glBindTexture(GL_TEXTURE_2D, offscreen.screenTextID);	// use the color attachment texture as the texture of the quad plane
 					
 					glBindVertexArray(quadVAO);
 					glDrawArrays(GL_TRIANGLES, 0, 6);	
