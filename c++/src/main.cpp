@@ -156,8 +156,8 @@ int main(int, char**)
 		
     bool show_test_window = true;
     bool show_another_window = false;
-    //ImVec4 clear_color = ImVec4(10.0f/255.0f, 10.0f/255.0f, 10.0f/255.0f, 1.00f);
-    ImVec4 clear_color = ImVec4(115.0f/255.0f, 140.0f/255.0f, 153.0f/255.0f, 1.00f);
+    ImVec4 clear_color = ImVec4(10.0f/255.0f, 10.0f/255.0f, 10.0f/255.0f, 1.00f);
+    //ImVec4 clear_color = ImVec4(115.0f/255.0f, 140.0f/255.0f, 153.0f/255.0f, 1.00f);
 
 		aiLogStream stream;
 		stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE,"assimp_log.txt");

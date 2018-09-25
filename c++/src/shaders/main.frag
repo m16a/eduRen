@@ -98,7 +98,6 @@ subroutine vec3 reflectionMap(vec2 uv);
 subroutine (reflectionMap) vec3 emptyReflectionMap(vec2 uv)
 {
 	return vec3(0.0, 0.0, 0.0);
-	//return vec3(1.0, 0.0, 0.0);
 }
 
 subroutine (reflectionMap) vec3 reflectionTexture(vec2 uv)
@@ -112,7 +111,6 @@ subroutine (reflectionMap) vec3 reflectionTexture(vec2 uv)
 
 subroutine (reflectionMap) vec3 reflectionColor(vec2 uv)
 {
-	//return vec3(1.0, 0.0, 0.0);
 	vec3 I = normalize(FragPos - camPos);
 	vec3 R = reflect(I, normalize(Normal));
 	R = normalize(vec3( rotfix * vec4(R, 0.0)));
@@ -128,13 +126,16 @@ subroutine uniform reflectionMap reflectionMapSelection;
 vec3 CalcPointLight(Color baseColor, PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
     vec3 lightDir = normalize(light.pos - fragPos);
+
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
+
     // specular shading
     vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), baseColor.shininess);
-    // attenuation
+		vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), baseColor.shininess);
 
+    // attenuation
     float distance    = length(light.pos - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
 
