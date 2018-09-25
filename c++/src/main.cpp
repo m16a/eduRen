@@ -26,12 +26,12 @@ static int sWinHeight = WINDOW_HEIGHT;
 
 struct SOffscreenRenderIDs
 {
-		GLuint FB;//framebuffer
-		GLuint textID;
-    GLuint rbo;//render buffer object
+		GLuint FB {0};//framebuffer
+		GLuint textID {0};
+    GLuint rbo {0};//render buffer object
 
-		GLuint intermediateFB;
-		GLuint screenTextID;
+		GLuint intermediateFB {0};
+		GLuint screenTextID {0};
 };
 
 static SOffscreenRenderIDs offscreen;
@@ -89,16 +89,13 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	if (!sNeedUpdateOffscreenIds)
 		return;
 
-	if (glCheckFramebufferStatus(offscreen.FB) == GL_INVALID_ENUM)
-		glGenFramebuffers(1, &offscreen.FB);
+	glDeleteFramebuffers(1, &offscreen.FB);
+	glGenFramebuffers(1, &offscreen.FB);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
 
-	if (glIsTexture(offscreen.textID))
-	{
-		glDeleteTextures(1, &offscreen.textID);
-		glDeleteRenderbuffers(1, &offscreen.rbo);//bad :(
-	}
+	glDeleteTextures(1, &offscreen.textID);
+	glDeleteRenderbuffers(1, &offscreen.rbo);//bad :(
 
 	glGenTextures(1, &offscreen.textID);
 
@@ -114,13 +111,12 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, offscreen.rbo); // now actually attach it
 
 	// configure second post-processing framebuffer
-	if (glCheckFramebufferStatus(offscreen.intermediateFB) == GL_INVALID_ENUM)
-		glGenFramebuffers(1, &offscreen.intermediateFB);
+	glDeleteFramebuffers(1, &offscreen.intermediateFB);
+	glGenFramebuffers(1, &offscreen.intermediateFB);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, offscreen.intermediateFB);
 
-	if (glIsTexture(offscreen.screenTextID))
-		glDeleteTextures(1, &offscreen.screenTextID);
+	glDeleteTextures(1, &offscreen.screenTextID);
 
 	glGenTextures(1, &offscreen.screenTextID);
 	glBindTexture(GL_TEXTURE_2D, offscreen.screenTextID);
@@ -128,6 +124,7 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, offscreen.screenTextID, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	sNeedUpdateOffscreenIds = false;
 }
