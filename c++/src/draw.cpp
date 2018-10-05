@@ -19,6 +19,8 @@ bool MyDrawController::isSpecular = true;
 bool MyDrawController::drawSkybox = false;
 bool MyDrawController::drawNormals = false;
 bool MyDrawController::isMSAA = false;
+bool MyDrawController::isGammaCorrection = false;
+bool MyDrawController::drawGradientReference = false;
 
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
@@ -26,7 +28,7 @@ CShader* mainShader = nullptr;
 CShader* lightModelShader = nullptr;
 CShader* skyboxShader = nullptr;
 CShader* normalShader = nullptr;
-
+CShader* rect2dShader = nullptr;
 CShader* currShader = nullptr;
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
@@ -289,6 +291,8 @@ void MyDrawController::Load()
 	mainShader = new CShader("shaders/main.vert", "shaders/main.frag");
 	skyboxShader  = new CShader("shaders/skybox.vert", "shaders/skybox.frag");
 	normalShader = new CShader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
+	rect2dShader = new CShader("shaders/rect2d.vert", "shaders/rect2d.frag");
+
 
 	InitLightModel();
 	m_resources.skyboxTextID = LoadCubemap();
@@ -471,6 +475,13 @@ void MyDrawController::SetupLights()
 			currShader->setFloat(lightI + "constant", light.mAttenuationConstant);
 			currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
 			currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
+
+			/*
+			std::cout << "----" << std::endl;
+			std::cout << light.mAttenuationConstant << std::endl;
+			std::cout << light.mAttenuationLinear << std::endl;
+			std::cout << light.mAttenuationQuadratic << std::endl;
+			*/
 		}
 		else if (light.mType == aiLightSource_DIRECTIONAL)
 		{
@@ -520,6 +531,10 @@ void MyDrawController::Render(const Camera& cam)
 
 	if (drawSkybox)
 		RenderSkyBox(cam);
+
+
+	if (drawGradientReference)
+		DrawGradientReference();
 }
 
 void MyDrawController::RenderLightModels(const Camera& cam)
@@ -578,3 +593,108 @@ void SResourceHandlers::Release()
 {
 //TODO: release resources
 }
+
+static float screenToNDC(float val, float scrSize)
+{
+	return (val / scrSize - 0.5f) * 2.0f;
+}
+
+static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, GLuint textureId, Camera& cam, bool doGammaCorrection)
+{
+	const float scrW = cam.Width;
+	const float scrH = cam.Height;
+
+	const float x0 = screenToNDC(x, scrW);
+	const float y0 = screenToNDC(y, scrH);
+
+	const float x1 = screenToNDC(x, scrW);
+	const float y1 = screenToNDC(y+h, scrH);
+
+	const float x2 = screenToNDC(x+w, scrW);
+	const float y2 = screenToNDC(y, scrH);
+
+	const float x3 = screenToNDC(x+w, scrW);
+	const float y3 = screenToNDC(y+h, scrH);
+
+	const float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+		// positions   // texCoords
+		x0,  y0,  0.0f, 0.0f,
+		x2,  y2,  1.0f, 0.0f,
+		x1,  y1,  0.0f, 1.0f,
+
+		x3,  y3,  1.0f, 1.0f,
+		x1,  y1,  0.0f, 1.0f,
+		x2,  y2,  1.0f, 0.0f
+	};
+
+	// screen quad VAO
+	GLuint quadVAO, quadVBO;
+	glGenVertexArrays(1, &quadVAO);
+	glGenBuffers(1, &quadVBO);
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+	rect2dShader->use();
+	if (textureId)
+	{
+		rect2dShader->setBool("useColor", false);
+		glActiveTexture(GL_TEXTURE0);
+		rect2dShader->setInt("in_texture", 0);
+		glBindTexture(GL_TEXTURE_2D, textureId);
+	}
+	else
+	{
+		rect2dShader->setVec3("color", color);
+		rect2dShader->setBool("useColor", true);
+	}
+
+	rect2dShader->setBool("doGammaCorrection", doGammaCorrection);
+
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLES, 0, sizeof(quadVertices));	
+
+	glDeleteBuffers(1, &quadVBO);
+	glDeleteVertexArrays(1, &quadVAO);
+}
+
+void MyDrawController::DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection)
+{
+	::DrawRect2d(x, y, w, h, color, 0, GetCam(), doGammaCorrection);
+}
+
+void MyDrawController::DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection)
+{
+	glm::vec3 color;
+	::DrawRect2d(x, y, w, h, color, textureId, GetCam(), doGammaCorrection);
+}
+
+void MyDrawController::DrawGradientReference()
+{
+	const int cnt = 30;
+	const int rectW = 30;
+	const int rectH = 90;
+	const int borderSize = 5;
+	
+	GLboolean wasDepthTest = 1;
+	glGetBooleanv(GL_DEPTH_TEST, &wasDepthTest);
+	glDisable(GL_DEPTH_TEST);
+
+	DrawRect2d(10, 10, cnt * rectW + 2*borderSize, rectH + 2*borderSize, glm::vec3(1, 1, 1), false);
+
+	for (int i=0; i<cnt; ++i)
+	{
+		const float color = float(i) / (cnt-1);
+		DrawRect2d(10 + borderSize + i*rectW, 10 + borderSize, rectW, rectH, glm::vec3(color), false);
+	}
+
+	if (wasDepthTest)
+		glEnable(GL_DEPTH_TEST);
+		
+
+}
+

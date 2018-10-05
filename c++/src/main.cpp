@@ -171,8 +171,8 @@ int main(int, char**)
 		bool clamp60FPS = true;
 
 
-		CShader offToBackShader("shaders/screen.vert", "shaders/screen.frag");
-		//
+		CShader offToBackShader("shaders/rect2d.vert", "shaders/rect2d.frag");
+		
     // screen quad VAO
     GLuint quadVAO, quadVBO;
     glGenVertexArrays(1, &quadVAO);
@@ -224,7 +224,9 @@ int main(int, char**)
 				ImGui::Checkbox("wire mode", &MyDrawController::isWireMode); ImGui::SameLine(100);
 				ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
 				ImGui::Checkbox("normals", &MyDrawController::drawNormals);	
-				ImGui::Checkbox("MSAA", &MyDrawController::isMSAA);	
+				ImGui::Checkbox("MSAA", &MyDrawController::isMSAA);
+				ImGui::Checkbox("gamma correction", &MyDrawController::isGammaCorrection);	ImGui::SameLine(200);
+				ImGui::Checkbox("draw gradient", &MyDrawController::drawGradientReference);	
 
 				ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
@@ -270,8 +272,6 @@ int main(int, char**)
 
         glViewport(0, 0, display_w, display_h);
 
-				
-
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 				glEnable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -281,6 +281,10 @@ int main(int, char**)
 
 				cam.Width = sWinWidth;
 				cam.Height = sWinHeight;
+
+				if (MyDrawController::isGammaCorrection && !MyDrawController::isMSAA)
+					glEnable(GL_FRAMEBUFFER_SRGB);
+
 				mdc.Render(cam);
 
 				//draw offscreen to screen
@@ -296,17 +300,15 @@ int main(int, char**)
 					glClear(GL_COLOR_BUFFER_BIT);
 					glDisable(GL_DEPTH_TEST);
 
-					offToBackShader.use();
-					glActiveTexture(GL_TEXTURE0);
-					offToBackShader.setInt("screenTexture", 0);
-					glBindTexture(GL_TEXTURE_2D, offscreen.screenTextID);	// use the color attachment texture as the texture of the quad plane
-					
-					glBindVertexArray(quadVAO);
-					glDrawArrays(GL_TRIANGLES, 0, 6);	
+					mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID, MyDrawController::isGammaCorrection);
 				}
+
+				if (MyDrawController::isGammaCorrection && !MyDrawController::isMSAA)
+					glDisable(GL_FRAMEBUFFER_SRGB);
 
         ImGui::Render();
         glfwSwapBuffers(window);
+
 
 				high_resolution_clock::time_point end = high_resolution_clock::now();
 				timeSpan = duration_cast<duration<float>>(end - start);
