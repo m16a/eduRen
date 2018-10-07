@@ -21,6 +21,7 @@ bool MyDrawController::drawNormals = false;
 bool MyDrawController::isMSAA = false;
 bool MyDrawController::isGammaCorrection = false;
 bool MyDrawController::drawGradientReference = false;
+bool MyDrawController::drawShadows = true;
 
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
@@ -29,6 +30,7 @@ CShader* lightModelShader = nullptr;
 CShader* skyboxShader = nullptr;
 CShader* normalShader = nullptr;
 CShader* rect2dShader = nullptr;
+CShader* shadowMapShader = nullptr;
 CShader* currShader = nullptr;
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
@@ -184,6 +186,12 @@ MyDrawController::MyDrawController() : m_inputHandler(*this)
 MyDrawController::~MyDrawController()
 {
 	m_resources.Release();
+
+	delete mainShader;
+	delete skyboxShader;
+	delete normalShader;
+	delete rect2dShader;
+	delete shadowMapShader;
 }
 
 void MyDrawController::InitLightModel()
@@ -292,7 +300,7 @@ void MyDrawController::Load()
 	skyboxShader  = new CShader("shaders/skybox.vert", "shaders/skybox.frag");
 	normalShader = new CShader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
 	rect2dShader = new CShader("shaders/rect2d.vert", "shaders/rect2d.frag");
-
+	shadowMapShader = new CShader("shaders/shadowMap.vert", "shaders/shadowMap.frag");
 
 	InitLightModel();
 	m_resources.skyboxTextID = LoadCubemap();
@@ -395,7 +403,12 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 		else
 				data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "emptyReflectionMap"));
 
-			//	data.push_back(std::pair<std::string, std::string>("reflectionMapSelection", "reflectionTexture"));
+		
+		if (drawShadows)
+			data.push_back(std::pair<std::string, std::string>("shadowMapSelection", "globalShadowMap"));
+		else
+			data.push_back(std::pair<std::string, std::string>("shadowMapSelection", "emptyShadowMap"));
+
 
 		currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
 	}
@@ -515,19 +528,99 @@ void MyDrawController::SetupLights()
 
 	currShader->setInt("nPointLights", pointLightIndx);
 	currShader->setInt("nDirLights", dirLightIndx);
+
+
+	//setup shadow maps
+	for (const auto& shadowMap : m_shadowMaps)
+	{
+		const glm::mat4& view = shadowMap.frustum.GetViewMatrix();
+	  const glm::mat4& proj = shadowMap.frustum.GetProjMatrix();
+		currShader->setMat4("lightSpaceMatrix", proj*view);	
+
+		glActiveTexture(GL_TEXTURE0 + 7);
+		currShader->setInt("shadowMapTexture", 7);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, shadowMap.textureId);
+	}
+}
+
+void MyDrawController::BuildShadowMap()
+{
+	m_shadowMaps.clear();
+	const Camera& currCam = GetCam();
+	for (int i =0; i < m_pScene->mNumLights; ++i)
+	{
+		const aiLight& light= *m_pScene->mLights[i];
+		assert(light.mType == aiLightSource_POINT || light.mType == aiLightSource_DIRECTIONAL);
+		
+		aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
+		assert(pLightNode);
+
+		aiMatrix4x4 m = pLightNode->mTransformation;
+		glm::mat4 t = aiMatrix4x4ToGlm(&m);
+
+		if (light.mType == aiLightSource_DIRECTIONAL)
+		{
+			const float SHADOW_WIDTH = 1024.0f;
+			const float SHADOW_HEIGHT = 1024.0f;
+
+			GLuint depthMapFBO;	
+			glGenFramebuffers(1, &depthMapFBO);
+
+			if (!m_resources.gsmID)
+				glGenTextures(1, &m_resources.gsmID);
+
+			glBindTexture(GL_TEXTURE_2D, m_resources.gsmID);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+
+			glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_resources.gsmID, 0);
+			glDrawBuffer(GL_NONE);
+			glReadBuffer(GL_NONE);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+
+			glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+			glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+			glClear(GL_DEPTH_BUFFER_BIT);
+
+
+			const glm::vec3 center(0.0f, 0.0f, 0.0f);// = currCam.Position + 5.0f * currCam.Front;
+			const glm::vec3 pos = center + 20.0f * glm::vec3(t[2]);// + 1 * currCam.Front;
+			
+			Camera lightCam;
+			lightCam.Position = pos;
+			lightCam.Front= center - pos;
+			lightCam.Up = glm::vec3(0.0f, 0.0f, 1.0f);
+			lightCam.IsPerspective = false;
+
+			RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, lightCam, shadowMapShader);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+			glViewport(0, 0, currCam.Width, currCam.Height);
+
+			DrawRect2d(currCam.Width - 215, 10, 200, 200, m_resources.gsmID, true, true);//TODO: elaborate why shadow map debug texture pretier with gamma correction
+			
+			m_shadowMaps.push_back({lightCam, m_resources.gsmID});
+		}
+	}
 }
 
 void MyDrawController::Render(const Camera& cam)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
+	if (drawShadows)
+		BuildShadowMap();	
+
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr);
 
 	if (drawNormals)
 		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader);
 	
-	//if (!drawSkybox)
-		RenderLightModels(cam);
+	RenderLightModels(cam);
 
 	if (drawSkybox)
 		RenderSkyBox(cam);
@@ -599,7 +692,7 @@ static float screenToNDC(float val, float scrSize)
 	return (val / scrSize - 0.5f) * 2.0f;
 }
 
-static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, GLuint textureId, Camera& cam, bool doGammaCorrection)
+static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, GLuint textureId, Camera& cam, bool doGammaCorrection, bool debugShadowMap)
 {
 	const float scrW = cam.Width;
 	const float scrH = cam.Height;
@@ -653,6 +746,8 @@ static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& colo
 		rect2dShader->setBool("useColor", true);
 	}
 
+	rect2dShader->setBool("debugShadowMap", debugShadowMap);
+
 	rect2dShader->setBool("doGammaCorrection", doGammaCorrection);
 
 	glBindVertexArray(quadVAO);
@@ -664,13 +759,13 @@ static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& colo
 
 void MyDrawController::DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection)
 {
-	::DrawRect2d(x, y, w, h, color, 0, GetCam(), doGammaCorrection);
+	::DrawRect2d(x, y, w, h, color, 0, GetCam(), doGammaCorrection, false);
 }
 
-void MyDrawController::DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection)
+void MyDrawController::DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap)
 {
 	glm::vec3 color;
-	::DrawRect2d(x, y, w, h, color, textureId, GetCam(), doGammaCorrection);
+	::DrawRect2d(x, y, w, h, color, textureId, GetCam(), doGammaCorrection, debugShadowMap);
 }
 
 void MyDrawController::DrawGradientReference()

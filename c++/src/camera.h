@@ -57,20 +57,26 @@ public:
 		float Width {DEFAULT_WIDTH};
 		float Height {DEFAULT_HEIGHT};
 
+		bool IsPerspective {true};
+
     Camera()
     {
-        updateCameraVectors();
+      updateCameraVectors();
     }
 
     // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
     glm::mat4 GetViewMatrix() const
     {
-        return glm::lookAt(Position, Position + Front, Up);
+      return glm::lookAt(Position, Position + Front, Up);
     }
 
     glm::mat4 GetProjMatrix() const
     {
+			if (IsPerspective)
 				return glm::perspective(glm::radians(float(FOV)), Width / Height, NearPlane, FarPlane);
+			else
+				return glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, NearPlane, FarPlane);  
+
     }
 
     // Processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)

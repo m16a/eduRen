@@ -34,6 +34,8 @@ struct SResourceHandlers
 	GLuint cubeElemID;
 	GLuint cubeVAOID;
 
+	GLuint gsmID {0}; //global shadow map
+
 	void Release();
 };
 
@@ -58,9 +60,10 @@ class MyDrawController
 	static bool drawGradientReference;
 	static bool isMSAA;
 	static bool isGammaCorrection;
+	static bool drawShadows;
 
 	void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection);
-	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection);
+	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap);
 
 	private:
 	bool LoadScene(const std::string& path);
@@ -73,11 +76,19 @@ class MyDrawController
 	void LoadMeshesData();
 	void SetupMaterial(const aiMesh& mesh, CShader* overrideProgram);
 	void SetupProgramTransforms(const Camera& cam, const glm::mat4& model,const glm::mat4& view, const glm::mat4& proj);
-
+	void BuildShadowMap();	
 
 	// draw gradient to debug gamma correction
 	void DrawGradientReference();
 
+	private:
+	struct SShadowMap
+	{
+		Camera frustum;
+		GLuint textureId;
+	};
+	
+	std::vector<SShadowMap> m_shadowMaps;	
 	private:
 	Camera m_cam;
 	CInputHandler m_inputHandler;

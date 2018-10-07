@@ -3,6 +3,7 @@
 in vec3 Normal;
 in vec3 FragPos;
 in vec2 TexCoords;
+in vec4 FragPosLightSpace;
 
 struct PointLight
 {
@@ -61,6 +62,8 @@ uniform mat4 model;
 
 out vec4 fColor;
 
+uniform sampler2D shadowMapTexture;
+
 // ---------------------- subroutines ------------------------
 struct Color
 {
@@ -94,6 +97,7 @@ subroutine (baseColor) Color textColor(vec2 uv)
 }
 subroutine uniform baseColor baseColorSelection;
 
+// ----------------------reflection map-------------------------------------
 subroutine vec3 reflectionMap(vec2 uv);
 subroutine (reflectionMap) vec3 emptyReflectionMap(vec2 uv)
 {
@@ -120,6 +124,30 @@ subroutine (reflectionMap) vec3 reflectionColor(vec2 uv)
 
 subroutine uniform reflectionMap reflectionMapSelection;
 
+
+// ----------------------shadow map-------------------------------------
+subroutine float shadowMap(vec4 fragPosLightSpace);
+subroutine (shadowMap) float emptyShadowMap(vec4 fragPosLightSpace)
+{
+	return 0.0f;
+}
+
+subroutine (shadowMap) float globalShadowMap(vec4 fragPosLightSpace)
+{
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	// transform to [0,1] range
+	projCoords = projCoords * 0.5 + 0.5;
+	// get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+	float closestDepth = texture(shadowMapTexture, projCoords.xy).r; 
+	// get depth of current fragment from light's perspective
+	float currentDepth = projCoords.z;
+	// check whether current frag pos is in shadow
+	float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+
+	return shadow;
+}
+
+subroutine uniform shadowMap shadowMapSelection;
 // -----------------------------------------------------------
 
 
@@ -187,6 +215,10 @@ void main()
 	//res += emptyReflectionMap(TexCoords);
 	res += reflectionMapSelection(TexCoords); 
 	//res += reflectionMapSelection(TexCoords); 
+	//
+	float shadow = shadowMapSelection(FragPosLightSpace);
+
+	res *= vec3(1.0 - shadow);
 
 	fColor = vec4(res, 1.0);
 	//fColor = vec4(norm, 1.0);
