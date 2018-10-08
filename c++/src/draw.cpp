@@ -21,7 +21,7 @@ bool MyDrawController::drawNormals = false;
 bool MyDrawController::isMSAA = false;
 bool MyDrawController::isGammaCorrection = false;
 bool MyDrawController::drawGradientReference = false;
-bool MyDrawController::drawShadows = true;
+bool MyDrawController::drawShadows = false;
 
 enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
@@ -193,10 +193,18 @@ MyDrawController::~MyDrawController()
 	delete rect2dShader;
 	delete shadowMapShader;
 
-	for (const auto& sm: m_shadowMaps)
+	ReleaseShadowMaps();
+}
+
+void MyDrawController::ReleaseShadowMaps()
+{
+	for (auto& sm: m_shadowMaps)
 	{
 		if (0 != sm.second.textureId)
+		{
 			glDeleteTextures(1, &sm.second.textureId);
+			sm.second.textureId = 0;
+		}
 	}
 }
 
@@ -463,7 +471,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, c
 
 void MyDrawController::SetupLights()
 {
-	//if (drawSkybox)//TODO:understand why
+	//if (drawSkybox)//TODO:understand why? Answer: looks like samplerCube by default is binded to 0 texture, which is not an cube map
 	{
 		glActiveTexture(GL_TEXTURE0 + 4);
 		currShader->setInt("skybox", 4);
@@ -496,7 +504,7 @@ void MyDrawController::SetupLights()
 			currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
 
 
-			if (!m_shadowMaps.empty() && 0)
+			if (!m_shadowMaps.empty() && 1)
 			{
 				SShadowMap& sm = m_shadowMaps[light.mName.C_Str()];
 
@@ -505,6 +513,13 @@ void MyDrawController::SetupLights()
 				glActiveTexture(GL_TEXTURE0 + 8);
 				currShader->setInt(lightI + "shadowMapTexture", 8);
 				glBindTexture(GL_TEXTURE_CUBE_MAP, sm.textureId);
+			}
+			else
+			{
+				glActiveTexture(GL_TEXTURE0 + 8);
+				currShader->setInt(lightI + "shadowMapTexture", 8);
+				glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
+
 			}
 
 			/*
@@ -520,7 +535,7 @@ void MyDrawController::SetupLights()
 			lightI = buff; 
 			currShader->setVec3(lightI + "dir", glm::vec3(t[2]));
 
-			if (!m_shadowMaps.empty())
+			if (!m_shadowMaps.empty() && 1)
 			{
 				SShadowMap& sm = m_shadowMaps[light.mName.C_Str()];
 
@@ -561,7 +576,7 @@ void MyDrawController::SetupLights()
 	currShader->setInt("nDirLights", dirLightIndx);
 }
 
-void MyDrawController::BuildShadowMap()
+void MyDrawController::BuildShadowMaps()
 {
 	const Camera& currCam = GetCam();
 	for (int i =0; i < m_pScene->mNumLights; ++i)
@@ -607,10 +622,10 @@ void MyDrawController::BuildShadowMap()
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowMap.textureId, 0);
 			glDrawBuffer(GL_NONE);
 			glReadBuffer(GL_NONE);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+			//glBindFramebuffer(GL_FRAMEBUFFER, 0);  
 
 			glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-			glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+			//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 			glClear(GL_DEPTH_BUFFER_BIT);
 
 
@@ -636,7 +651,7 @@ void MyDrawController::BuildShadowMap()
 
 			glDeleteFramebuffers(1, &depthMapFBO);
 		}
-		else if (0)
+		else if (1)
 		{
 			GLint oldFBO = 0;
 			glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
@@ -700,7 +715,9 @@ void MyDrawController::Render(const Camera& cam)
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
 	if (drawShadows)
-		BuildShadowMap();	
+		BuildShadowMaps();	
+	else
+		ReleaseShadowMaps();
 
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr);
 

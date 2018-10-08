@@ -18,10 +18,11 @@ struct PointLight
 	float quadratic;
 	
 	samplerCube shadowMapTexture;
+	//sampler2D shadowMapTexture;
 	float farPlane;
 };
 
-#define NR_POINT_LIGHTS 10
+#define NR_POINT_LIGHTS 1
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform int nPointLights;
 
@@ -35,7 +36,7 @@ struct DirLight
 	sampler2D shadowMapTexture;
 };
 
-#define NR_DIR_LIGHTS 10
+#define NR_DIR_LIGHTS 1
 uniform DirLight dirLights[NR_DIR_LIGHTS];
 uniform int nDirLights;
 
@@ -131,6 +132,7 @@ subroutine uniform reflectionMap reflectionMapSelection;
 
 // ----------------------shadow map-------------------------------------
 subroutine float shadowMap(vec4 fragPosLightSpace, vec3 normal, DirLight light);
+
 subroutine (shadowMap) float emptyShadowMap(vec4 fragPosLightSpace, vec3 normal, DirLight light)
 {
 	return 0.0f;
@@ -243,6 +245,7 @@ void main()
 	//res += reflectionMapSelection(TexCoords); 
 	//
 	float shadow = shadowMapSelection(FragPosLightSpace, norm, dirLights[0]);
+	//shadowMapSelection(FragPosLightSpace, norm, dirLights[0]);
 
 	res *= vec3(1.0 - shadow);
 

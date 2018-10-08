@@ -74,7 +74,8 @@ class MyDrawController
 	void LoadMeshesData();
 	void SetupMaterial(const aiMesh& mesh, CShader* overrideProgram);
 	void SetupProgramTransforms(const Camera& cam, const glm::mat4& model,const glm::mat4& view, const glm::mat4& proj);
-	void BuildShadowMap();	
+	void BuildShadowMaps();	
+	void ReleaseShadowMaps();	
 
 	// draw gradient to debug gamma correction
 	void DrawGradientReference();
