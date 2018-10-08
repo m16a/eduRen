@@ -16,7 +16,11 @@ struct PointLight
 	float constant;
 	float linear;
 	float quadratic;
+	
+	samplerCube shadowMapTexture;
+	float farPlane;
 };
+
 #define NR_POINT_LIGHTS 10
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform int nPointLights;
@@ -28,7 +32,9 @@ struct DirLight
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
+	sampler2D shadowMapTexture;
 };
+
 #define NR_DIR_LIGHTS 10
 uniform DirLight dirLights[NR_DIR_LIGHTS];
 uniform int nDirLights;
@@ -61,8 +67,6 @@ uniform mat4 rotfix;
 uniform mat4 model;
 
 out vec4 fColor;
-
-uniform sampler2D shadowMapTexture;
 
 // ---------------------- subroutines ------------------------
 struct Color
@@ -126,13 +130,13 @@ subroutine uniform reflectionMap reflectionMapSelection;
 
 
 // ----------------------shadow map-------------------------------------
-subroutine float shadowMap(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir);
-subroutine (shadowMap) float emptyShadowMap(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+subroutine float shadowMap(vec4 fragPosLightSpace, vec3 normal, DirLight light);
+subroutine (shadowMap) float emptyShadowMap(vec4 fragPosLightSpace, vec3 normal, DirLight light)
 {
 	return 0.0f;
 }
 
-subroutine (shadowMap) float globalShadowMap(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+subroutine (shadowMap) float globalShadowMap(vec4 fragPosLightSpace, vec3 normal, DirLight light)
 {
 	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 
@@ -155,12 +159,12 @@ subroutine (shadowMap) float globalShadowMap(vec4 fragPosLightSpace, vec3 normal
 	//float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
 
 	float shadow = 0.0;
-	vec2 texelSize = 1.0 / textureSize(shadowMapTexture, 0);
+	vec2 texelSize = 1.0 / textureSize(light.shadowMapTexture, 0);
 	for(int x = -1; x <= 1; ++x)
 	{
 			for(int y = -1; y <= 1; ++y)
 			{
-					float pcfDepth = texture(shadowMapTexture, projCoords.xy + vec2(x, y) * texelSize).r; 
+					float pcfDepth = texture(light.shadowMapTexture, projCoords.xy + vec2(x, y) * texelSize).r; 
 					shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
 			}    
 	}
@@ -238,7 +242,7 @@ void main()
 	res += reflectionMapSelection(TexCoords); 
 	//res += reflectionMapSelection(TexCoords); 
 	//
-	float shadow = shadowMapSelection(FragPosLightSpace, norm, dirLights[0].dir);
+	float shadow = shadowMapSelection(FragPosLightSpace, norm, dirLights[0]);
 
 	res *= vec3(1.0 - shadow);
 

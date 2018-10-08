@@ -34,8 +34,6 @@ struct SResourceHandlers
 	GLuint cubeElemID;
 	GLuint cubeVAOID;
 
-	GLuint gsmID {0}; //global shadow map
-
 	void Release();
 };
 
@@ -85,10 +83,12 @@ class MyDrawController
 	struct SShadowMap
 	{
 		Camera frustum;
-		GLuint textureId;
+		GLuint textureId {0};
+		std::vector<glm::mat4> transforms;
 	};
-	
-	std::vector<SShadowMap> m_shadowMaps;	
+
+	std::map<std::string, SShadowMap> m_shadowMaps;	
+
 	private:
 	Camera m_cam;
 	CInputHandler m_inputHandler;
