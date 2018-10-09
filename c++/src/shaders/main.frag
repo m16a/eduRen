@@ -18,7 +18,6 @@ struct PointLight
 	float quadratic;
 	
 	samplerCube shadowMapTexture;
-	//sampler2D shadowMapTexture;
 	float farPlane;
 };
 

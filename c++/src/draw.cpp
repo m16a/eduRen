@@ -21,9 +21,10 @@ bool MyDrawController::drawNormals = false;
 bool MyDrawController::isMSAA = false;
 bool MyDrawController::isGammaCorrection = false;
 bool MyDrawController::drawGradientReference = false;
-bool MyDrawController::drawShadows = false;
+bool MyDrawController::drawShadows = true;
+bool MyDrawController::debugCubeShadowMap = false;
 
-enum Attrib_IDs { vPosition = 0, vNormals = 1, uvTextCoords = 2};
+enum Attrib_IDs {vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
 CShader* mainShader = nullptr;
 CShader* lightModelShader = nullptr;
@@ -31,8 +32,11 @@ CShader* skyboxShader = nullptr;
 CShader* normalShader = nullptr;
 CShader* rect2dShader = nullptr;
 CShader* shadowMapShader = nullptr;
+CShader* shadowCubeMapShader = nullptr;
+CShader* debugShadowCubeMapShader = nullptr;
 CShader* currShader = nullptr;
 
+static const float kTMPFarPlane = 25.0f; //TODO: refactor
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
     glm::mat4 to;
@@ -192,6 +196,8 @@ MyDrawController::~MyDrawController()
 	delete normalShader;
 	delete rect2dShader;
 	delete shadowMapShader;
+	delete shadowCubeMapShader;
+	delete debugShadowCubeMapShader;
 
 	ReleaseShadowMaps();
 }
@@ -300,7 +306,7 @@ bool MyDrawController::LoadScene(const std::string& path)
 
 void MyDrawController::Load()
 {
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
 	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
@@ -315,6 +321,8 @@ void MyDrawController::Load()
 	normalShader = new CShader("shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
 	rect2dShader = new CShader("shaders/rect2d.vert", "shaders/rect2d.frag");
 	shadowMapShader = new CShader("shaders/shadowMap.vert", "shaders/shadowMap.frag");
+	shadowCubeMapShader = new CShader("shaders/shadowCubeMap.vert", "shaders/shadowCubeMap.frag", "shaders/shadowCubeMap.geom");
+	debugShadowCubeMapShader = new CShader("shaders/debugCubeShadowMap.vert", "shaders/debugCubeShadowMap.frag"); 
 
 	InitLightModel();
 	m_resources.skyboxTextID = LoadCubemap();
@@ -503,8 +511,9 @@ void MyDrawController::SetupLights()
 			currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
 			currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
 
+			currShader->setVec3("lightPos", glm::vec3(t[3]));//TODO: refactor
 
-			if (!m_shadowMaps.empty() && 1)
+			if (drawShadows && 1)
 			{
 				SShadowMap& sm = m_shadowMaps[light.mName.C_Str()];
 
@@ -513,6 +522,17 @@ void MyDrawController::SetupLights()
 				glActiveTexture(GL_TEXTURE0 + 8);
 				currShader->setInt(lightI + "shadowMapTexture", 8);
 				glBindTexture(GL_TEXTURE_CUBE_MAP, sm.textureId);
+
+				char buff2[100];
+				std::string tmp2;
+				for (int i=0; i < sm.transforms.size(); ++i)
+				{
+					snprintf(buff2, sizeof(buff2), "shadowMatrices[%d]", i);
+					tmp2 = buff2; 
+					currShader->setMat4(tmp2, sm.transforms[i]);
+				}
+
+				currShader->setFloat("farPlane", kTMPFarPlane);
 			}
 			else
 			{
@@ -535,7 +555,7 @@ void MyDrawController::SetupLights()
 			lightI = buff; 
 			currShader->setVec3(lightI + "dir", glm::vec3(t[2]));
 
-			if (!m_shadowMaps.empty() && 1)
+			if (drawShadows && 1)
 			{
 				SShadowMap& sm = m_shadowMaps[light.mName.C_Str()];
 
@@ -642,6 +662,7 @@ void MyDrawController::BuildShadowMaps()
 			RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, lightCam, shadowMapShader);
 			glCullFace(GL_BACK);
 
+			glDeleteFramebuffers(1, &depthMapFBO);
 			glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);  
 			glViewport(0, 0, currCam.Width, currCam.Height);
 
@@ -649,7 +670,6 @@ void MyDrawController::BuildShadowMaps()
 			
 			shadowMap.frustum = lightCam;
 
-			glDeleteFramebuffers(1, &depthMapFBO);
 		}
 		else if (1)
 		{
@@ -681,30 +701,35 @@ void MyDrawController::BuildShadowMaps()
 			glReadBuffer(GL_NONE);
 
 			const float aspect = (float)SHADOW_WIDTH/(float)SHADOW_HEIGHT;
-			const float near = 1.0f;
-			const float far = 25.0f;
-			const glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, far); 
+			const float near = 0.01f;
+			const glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, kTMPFarPlane); 
 			const glm::vec3& lightPos = glm::vec3(t[3]);
 
 			shadowMap.transforms.clear();
 			std::vector<glm::mat4> shadowTransforms;
 			shadowMap.transforms.push_back(shadowProj * 
-											 glm::lookAt(lightPos, lightPos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
+											 glm::lookAt(lightPos, lightPos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
 			shadowMap.transforms.push_back(shadowProj * 
-											 glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
+											 glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
 			shadowMap.transforms.push_back(shadowProj * 
-											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 1.0, 1.0)));
 			shadowMap.transforms.push_back(shadowProj * 
-											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0,-1.0)));
+											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
 			shadowMap.transforms.push_back(shadowProj * 
-											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0,-1.0, 0.0)));
+											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
 			shadowMap.transforms.push_back(shadowProj * 
-											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0,-1.0, 0.0)));
+											 glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0, -1.0, 0.0)));
+
+			glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+			glClear(GL_DEPTH_BUFFER_BIT);
+
+			Camera emptyCam;
+			RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, emptyCam, shadowCubeMapShader);
+
+			glDeleteFramebuffers(1, &depthCubemapFBO);
 
 			glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);  
 			glViewport(0, 0, currCam.Width, currCam.Height);
-
-			glDeleteFramebuffers(1, &depthCubemapFBO);
 		}
 
 	}
@@ -728,10 +753,15 @@ void MyDrawController::Render(const Camera& cam)
 
 	if (drawSkybox)
 		RenderSkyBox(cam);
+	else if (debugCubeShadowMap)
+		DebugCubeShadowMap();	
+
 
 
 	if (drawGradientReference)
 		DrawGradientReference();
+
+
 }
 
 void MyDrawController::RenderLightModels(const Camera& cam)
@@ -771,12 +801,12 @@ void MyDrawController::RenderSkyBox(const Camera& cam)
 	glBindVertexArray(m_resources.cubeVAOID);
 
 	glActiveTexture(GL_TEXTURE0 + 4);
-	currShader->setInt("skybox", 4);
+	skyboxShader->setInt("skybox", 4);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
 	glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
 	
-  glm::mat4 view = glm::mat4(glm::mat3(m_cam.GetViewMatrix())); // remove translation from the view matrix
+  glm::mat4 view = glm::mat4(glm::mat3(cam.GetViewMatrix())); // remove translation from the view matrix
 	glm::mat4 mvp_matrix = cam.GetProjMatrix() * view * rot;
 	skyboxShader->setMat4("MVP", mvp_matrix);
 	
@@ -897,3 +927,38 @@ void MyDrawController::DrawGradientReference()
 
 }
 
+void MyDrawController::DebugCubeShadowMap()
+{
+	GLuint fisrstCubeMap = 0;
+	for (const auto& sm : m_shadowMaps)
+	{
+		if (sm.second.transforms.size() > 1)
+		{
+			fisrstCubeMap = sm.second.textureId;
+			break;
+		}
+	}
+
+	if (0 == fisrstCubeMap)
+		return;
+
+	glDepthFunc(GL_LEQUAL);
+	debugShadowCubeMapShader->use();
+	glBindVertexArray(m_resources.cubeVAOID);
+
+	glActiveTexture(GL_TEXTURE0 + 4);
+	debugShadowCubeMapShader->setInt("in_texture", 4);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, fisrstCubeMap);
+
+	//glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
+	
+  glm::mat4 view = glm::mat4(glm::mat3(m_cam.GetViewMatrix())); // remove translation from the view matrix
+	glm::mat4 mvp_matrix = m_cam.GetProjMatrix() * view ;//* rot;
+	debugShadowCubeMapShader->setMat4("MVP", mvp_matrix);
+	debugShadowCubeMapShader->setFloat("farPlane", kTMPFarPlane);
+	
+	GLint size = 0;
+	glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+	glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
+	glDepthFunc(GL_LESS);
+}

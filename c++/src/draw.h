@@ -59,6 +59,7 @@ class MyDrawController
 	static bool isMSAA;
 	static bool isGammaCorrection;
 	static bool drawShadows;
+	static bool debugCubeShadowMap;
 
 	void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection);
 	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap);
@@ -76,6 +77,7 @@ class MyDrawController
 	void SetupProgramTransforms(const Camera& cam, const glm::mat4& model,const glm::mat4& view, const glm::mat4& proj);
 	void BuildShadowMaps();	
 	void ReleaseShadowMaps();	
+	void DebugCubeShadowMap();	
 
 	// draw gradient to debug gamma correction
 	void DrawGradientReference();

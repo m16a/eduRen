@@ -228,6 +228,7 @@ int main(int, char**)
 				ImGui::Checkbox("gamma correction", &MyDrawController::isGammaCorrection);	ImGui::SameLine(200);
 				ImGui::Checkbox("draw gradient", &MyDrawController::drawGradientReference);	
 				ImGui::Checkbox("shadows", &MyDrawController::drawShadows);	
+				ImGui::Checkbox("debugCubeShadowMap", &MyDrawController::debugCubeShadowMap);	
 
 				ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
