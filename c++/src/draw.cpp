@@ -36,7 +36,7 @@ CShader* shadowCubeMapShader = nullptr;
 CShader* debugShadowCubeMapShader = nullptr;
 CShader* currShader = nullptr;
 
-static const float kTMPFarPlane = 25.0f; //TODO: refactor
+static const float kTMPFarPlane = 100.0f; //TODO: refactor
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
     glm::mat4 to;
@@ -510,6 +510,7 @@ void MyDrawController::SetupLights()
 			currShader->setFloat(lightI + "constant", light.mAttenuationConstant);
 			currShader->setFloat(lightI + "linear", light.mAttenuationLinear);
 			currShader->setFloat(lightI + "quadratic", light.mAttenuationQuadratic);
+			currShader->setFloat(lightI + "farPlane", kTMPFarPlane);
 
 			currShader->setVec3("lightPos", glm::vec3(t[3]));//TODO: refactor
 
