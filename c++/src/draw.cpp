@@ -609,8 +609,9 @@ void MyDrawController::SetupLights(const std::string& onlyLight)
 		//printf("%.1f %.1f %.1f\n", diffCol[0], diffCol[1], diffCol[2] );
 	}
 
-	currShader->setInt("nPointLights", pointLightIndx);
+	assert(dirLightIndx < 2 && "more than one dir light is not supported now due to one dir shadowmap.");
 	currShader->setInt("nDirLights", dirLightIndx);
+	currShader->setInt("nPointLights", pointLightIndx);
 }
 
 void MyDrawController::BuildShadowMaps()
