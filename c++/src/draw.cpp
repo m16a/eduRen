@@ -37,6 +37,20 @@ CShader* debugShadowCubeMapShader = nullptr;
 CShader* currShader = nullptr;
 
 static const float kTMPFarPlane = 100.0f; //TODO: refactor
+
+enum ETextureSlot
+{
+	Empty = 0,
+	Diffuse,
+	Specular,
+	Reflection,
+	Normals,
+	SkyBox,
+	DirShadowMap,
+	OmniShadowMapStart = 7,
+	OmniShadowMapEnd = 16
+};
+
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 {
     glm::mat4 to;
@@ -389,10 +403,10 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 		if (material.GetTextureCount(aiTextureType_DIFFUSE))
 		{
 			data.push_back(std::pair<std::string, std::string>("baseColorSelection", "textColor"));
-			BindTexture(material, aiTextureType_DIFFUSE, 0);
-			BindTexture(material, aiTextureType_SPECULAR, 1);
-			BindTexture(material, aiTextureType_AMBIENT, 2);
-			BindTexture(material, aiTextureType_NORMALS, 3);
+			BindTexture(material, aiTextureType_DIFFUSE, ETextureSlot::Diffuse);
+			BindTexture(material, aiTextureType_SPECULAR, ETextureSlot::Specular);
+			BindTexture(material, aiTextureType_AMBIENT, ETextureSlot::Reflection);
+			BindTexture(material, aiTextureType_NORMALS, ETextureSlot::Normals);
 		}
 		else
 		{
@@ -450,7 +464,7 @@ void MyDrawController::SetupProgramTransforms(const Camera& cam, const glm::mat4
 		}
 }
 
-void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram)
+void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram, const std::string& shadowMapForLight)
 {
 	aiMatrix4x4 m = nd->mTransformation;
 	glm::mat4 model = aiMatrix4x4ToGlm(&m);
@@ -463,7 +477,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, c
 		assert(pMesh);
 
 		SetupMaterial(*pMesh, overrideProgram);
-		SetupLights();
+		SetupLights(shadowMapForLight);
 		SetupProgramTransforms(cam, model, view, proj);
 		
 		GLint size = 0;
@@ -473,22 +487,22 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, c
 	}
 
 	for (int i = 0; i < nd->mNumChildren; ++i) {
-		RecursiveRender(scene, nd->mChildren[i], cam, overrideProgram);
+		RecursiveRender(scene, nd->mChildren[i], cam, overrideProgram, shadowMapForLight);
 	}
 }
 
-void MyDrawController::SetupLights()
+void MyDrawController::SetupLights(const std::string& onlyLight)
 {
 	//if (drawSkybox)//TODO:understand why? Answer: looks like samplerCube by default is binded to 0 texture, which is not an cube map
 	{
-		glActiveTexture(GL_TEXTURE0 + 4);
-		currShader->setInt("skybox", 4);
+		glActiveTexture(GL_TEXTURE0 + ETextureSlot::SkyBox);
+		currShader->setInt("skybox", ETextureSlot::SkyBox);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 	}
 
 	int pointLightIndx = 0;
 	int dirLightIndx = 0;
-	//light setup
+
 	for (int i =0; i < m_pScene->mNumLights; ++i)
 	{
 		const aiLight& light= *m_pScene->mLights[i];
@@ -496,6 +510,9 @@ void MyDrawController::SetupLights()
 		assert(light.mType == aiLightSource_POINT || light.mType == aiLightSource_DIRECTIONAL);
 		aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
 		assert(pLightNode);
+
+		if (onlyLight != "" && onlyLight != light.mName.C_Str())
+			continue;
 
 		aiMatrix4x4 m = pLightNode->mTransformation;
 		glm::mat4 t = aiMatrix4x4ToGlm(&m);
@@ -514,14 +531,14 @@ void MyDrawController::SetupLights()
 
 			currShader->setVec3("lightPos", glm::vec3(t[3]));//TODO: refactor
 
-			if (drawShadows && 1)
+			if (drawShadows)
 			{
 				SShadowMap& sm = m_shadowMaps[light.mName.C_Str()];
 
 			//	currShader->setMat4(lightI + "lightSpaceMatrix", proj*view);	
 
-				glActiveTexture(GL_TEXTURE0 + 8);
-				currShader->setInt(lightI + "shadowMapTexture", 8);
+				glActiveTexture(GL_TEXTURE0 + ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
+				currShader->setInt(lightI + "shadowMapTexture", ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
 				glBindTexture(GL_TEXTURE_CUBE_MAP, sm.textureId);
 
 				char buff2[100];
@@ -537,10 +554,9 @@ void MyDrawController::SetupLights()
 			}
 			else
 			{
-				glActiveTexture(GL_TEXTURE0 + 8);
-				currShader->setInt(lightI + "shadowMapTexture", 8);
+				glActiveTexture(GL_TEXTURE0 + ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
+				currShader->setInt(lightI + "shadowMapTexture", ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
 				glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
-
 			}
 
 			/*
@@ -564,8 +580,8 @@ void MyDrawController::SetupLights()
 				const glm::mat4& proj = sm.frustum.GetProjMatrix();
 				currShader->setMat4("lightSpaceMatrix", proj*view);	
 
-				glActiveTexture(GL_TEXTURE0 + 7);
-				currShader->setInt(lightI + "shadowMapTexture", 7);
+				glActiveTexture(GL_TEXTURE0 + ETextureSlot::DirShadowMap);
+				currShader->setInt(lightI + "shadowMapTexture", ETextureSlot::DirShadowMap);
 				glBindTexture(GL_TEXTURE_2D, sm.textureId);
 			}
 		}
@@ -660,7 +676,7 @@ void MyDrawController::BuildShadowMaps()
 			lightCam.IsPerspective = false;
 
 			glCullFace(GL_FRONT);
-			RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, lightCam, shadowMapShader);
+			RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, lightCam, shadowMapShader, light.mName.C_Str());
 			glCullFace(GL_BACK);
 
 			glDeleteFramebuffers(1, &depthMapFBO);
@@ -670,9 +686,8 @@ void MyDrawController::BuildShadowMaps()
 			DrawRect2d(currCam.Width - 215, 10, 200, 200, shadowMap.textureId, false, true);
 			
 			shadowMap.frustum = lightCam;
-
 		}
-		else if (1)
+		else
 		{
 			GLint oldFBO = 0;
 			glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
@@ -725,14 +740,13 @@ void MyDrawController::BuildShadowMaps()
 			glClear(GL_DEPTH_BUFFER_BIT);
 
 			Camera emptyCam;
-			RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, emptyCam, shadowCubeMapShader);
+			RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, emptyCam, shadowCubeMapShader, light.mName.C_Str());
 
 			glDeleteFramebuffers(1, &depthCubemapFBO);
 
 			glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);  
 			glViewport(0, 0, currCam.Width, currCam.Height);
 		}
-
 	}
 }
 
@@ -745,10 +759,10 @@ void MyDrawController::Render(const Camera& cam)
 	else
 		ReleaseShadowMaps();
 
-	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr);
+	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr, "");
 
 	if (drawNormals)
-		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader);
+		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader, "");
 	
 	RenderLightModels(cam);
 
@@ -947,8 +961,8 @@ void MyDrawController::DebugCubeShadowMap()
 	debugShadowCubeMapShader->use();
 	glBindVertexArray(m_resources.cubeVAOID);
 
-	glActiveTexture(GL_TEXTURE0 + 4);
-	debugShadowCubeMapShader->setInt("in_texture", 4);
+	glActiveTexture(GL_TEXTURE0 + ETextureSlot::SkyBox);
+	debugShadowCubeMapShader->setInt("in_texture", ETextureSlot::SkyBox);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, fisrstCubeMap);
 
 	//glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));

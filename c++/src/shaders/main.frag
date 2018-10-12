@@ -21,7 +21,7 @@ struct PointLight
 	float farPlane;
 };
 
-#define NR_POINT_LIGHTS 1
+#define NR_POINT_LIGHTS 10
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform int nPointLights;
 
@@ -263,7 +263,6 @@ void main()
 	res += reflectionMapSelection(TexCoords); 
 
 	float shadow = shadowMapSelection(FragPosLightSpace, norm, dirLights[0]);
-	//shadowMapSelection(FragPosLightSpace, norm, dirLights[0]);
 
 	res *= vec3(1.0 - shadow);
 

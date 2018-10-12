@@ -67,11 +67,11 @@ class MyDrawController
 	private:
 	bool LoadScene(const std::string& path);
 	void InitLightModel();
-	void RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram);
+	void RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram, const std::string& shadowMapForLight);
 	void RenderSkyBox(const Camera& cam);
 	void RenderLightModels(const Camera& cam);
 	void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
-	void SetupLights();
+	void SetupLights(const std::string& onlyLight);
 	void LoadMeshesData();
 	void SetupMaterial(const aiMesh& mesh, CShader* overrideProgram);
 	void SetupProgramTransforms(const Camera& cam, const glm::mat4& model,const glm::mat4& view, const glm::mat4& proj);
