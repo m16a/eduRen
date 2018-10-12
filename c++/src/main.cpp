@@ -2,6 +2,7 @@
 #include "shader.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include "imgui_impl_glfw_gl3.h"
 #include <stdio.h>
 
@@ -228,7 +229,43 @@ int main(int, char**)
 				ImGui::Checkbox("gamma correction", &MyDrawController::isGammaCorrection);	ImGui::SameLine(200);
 				ImGui::Checkbox("draw gradient", &MyDrawController::drawGradientReference);	
 				ImGui::Checkbox("shadows", &MyDrawController::drawShadows);	
-				ImGui::Checkbox("debugCubeShadowMap", &MyDrawController::debugCubeShadowMap);	
+
+				if (!MyDrawController::drawShadows)
+				{
+					ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+					ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+				}
+
+				ImGui::Checkbox("debugShadowMaps", &MyDrawController::debugShadowMaps);	
+				ImGui::SameLine(150);
+				ImGui::PushItemWidth(150);
+				
+				static int item = -1;
+
+				const char** arr = nullptr;
+				if (!MyDrawController::pointLightNames.empty())
+				{
+					arr = new const char* [MyDrawController::pointLightNames.size()]; //TODO::ugly
+					for (int i=0; i < MyDrawController::pointLightNames.size(); ++i)
+					{
+						arr[i] = MyDrawController::pointLightNames[i].c_str();
+					}
+
+					ImGui::Combo("point light", &item, arr, MyDrawController::pointLightNames.size());
+
+					if (item > -1)
+						MyDrawController::debugOnmiShadowLightName = arr[item];
+				}
+
+				if (arr)
+					delete [] arr;
+
+
+				if (!MyDrawController::drawShadows)
+				{
+					ImGui::PopItemFlag();
+					ImGui::PopStyleVar();
+				}
 
 				ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 

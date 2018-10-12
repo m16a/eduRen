@@ -59,7 +59,10 @@ class MyDrawController
 	static bool isMSAA;
 	static bool isGammaCorrection;
 	static bool drawShadows;
-	static bool debugCubeShadowMap;
+
+	static bool debugShadowMaps;
+	static std::string debugOnmiShadowLightName;
+	static std::vector<std::string> pointLightNames;
 
 	void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection);
 	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap);

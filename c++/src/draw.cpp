@@ -22,7 +22,10 @@ bool MyDrawController::isMSAA = false;
 bool MyDrawController::isGammaCorrection = false;
 bool MyDrawController::drawGradientReference = false;
 bool MyDrawController::drawShadows = true;
-bool MyDrawController::debugCubeShadowMap = false;
+bool MyDrawController::debugShadowMaps = false;
+
+std::string MyDrawController::debugOnmiShadowLightName = std::string();
+std::vector<std::string> MyDrawController::pointLightNames = std::vector<std::string>();
 
 enum Attrib_IDs {vPosition = 0, vNormals = 1, uvTextCoords = 2};
 
@@ -314,6 +317,16 @@ bool MyDrawController::LoadScene(const std::string& path)
 		std::cout << "[assimp error]" << aiGetErrorString() << std::endl;
 
 	m_dirPath = path.substr(0, path.find_last_of('/'));
+
+	if (res)
+	{
+		for (int i=0; i < m_pScene->mNumLights; ++i)
+		{
+			const aiLight& light = *m_pScene->mLights[i];
+			if(light.mType == aiLightSource_POINT) 
+				pointLightNames.push_back(light.mName.C_Str());
+		}
+	}
 
 	return res;
 }
@@ -660,12 +673,9 @@ void MyDrawController::BuildShadowMaps()
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowMap.textureId, 0);
 			glDrawBuffer(GL_NONE);
 			glReadBuffer(GL_NONE);
-			//glBindFramebuffer(GL_FRAMEBUFFER, 0);  
 
 			glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-			//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 			glClear(GL_DEPTH_BUFFER_BIT);
-
 
 			const glm::vec3 center(0.0f, 0.0f, 0.0f);// = currCam.Position + 5.0f * currCam.Front;
 			const glm::vec3 pos = center + 19.0f * glm::vec3(t[2]);// + 1 * currCam.Front;
@@ -684,7 +694,8 @@ void MyDrawController::BuildShadowMaps()
 			glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);  
 			glViewport(0, 0, currCam.Width, currCam.Height);
 
-			DrawRect2d(currCam.Width - 215, 10, 200, 200, shadowMap.textureId, false, true);
+			if (debugShadowMaps)
+				DrawRect2d(currCam.Width - 215, 10, 200, 200, shadowMap.textureId, false, true);
 			
 			shadowMap.frustum = lightCam;
 		}
@@ -769,7 +780,7 @@ void MyDrawController::Render(const Camera& cam)
 
 	if (drawSkybox)
 		RenderSkyBox(cam);
-	else if (debugCubeShadowMap)
+	else if (debugShadowMaps)
 		DebugCubeShadowMap();	
 
 
@@ -945,18 +956,16 @@ void MyDrawController::DrawGradientReference()
 
 void MyDrawController::DebugCubeShadowMap()
 {
-	GLuint fisrstCubeMap = 0;
-	for (const auto& sm : m_shadowMaps)
-	{
-		if (sm.second.transforms.size() > 1)
-		{
-			fisrstCubeMap = sm.second.textureId;
-			break;
-		}
-	}
-
-	if (0 == fisrstCubeMap)
+	
+	if (debugOnmiShadowLightName.empty())
 		return;
+
+	auto it = m_shadowMaps.find(debugOnmiShadowLightName.c_str());
+
+	if (it == m_shadowMaps.end())
+		return;
+
+	SShadowMap& shadowMap = it->second;
 
 	glDepthFunc(GL_LEQUAL);
 	debugShadowCubeMapShader->use();
@@ -964,7 +973,7 @@ void MyDrawController::DebugCubeShadowMap()
 
 	glActiveTexture(GL_TEXTURE0 + ETextureSlot::SkyBox);
 	debugShadowCubeMapShader->setInt("in_texture", ETextureSlot::SkyBox);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, fisrstCubeMap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, shadowMap.textureId);
 
 	//glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
 	
