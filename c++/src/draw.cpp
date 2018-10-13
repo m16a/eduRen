@@ -333,8 +333,11 @@ bool MyDrawController::LoadScene(const std::string& path)
 
 void MyDrawController::Load()
 {
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
+
 	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+	
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
@@ -424,8 +427,8 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 		else
 		{
 			data.push_back(std::pair<std::string, std::string>("baseColorSelection", "plainColor"));
-			aiColor3D col;
 
+			aiColor3D col;
 			if (!material.Get(AI_MATKEY_COLOR_AMBIENT, col))
 				currShader->setVec3("material.ambient", col[0], col[1], col[2]);
 
@@ -439,6 +442,7 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 			if (!material.Get(AI_MATKEY_SHININESS, shininess))
 				currShader->setFloat("material.shininess", shininess);
 		}
+
 
 		if (drawSkybox)
 		{
@@ -783,12 +787,8 @@ void MyDrawController::Render(const Camera& cam)
 	else if (debugShadowMaps)
 		DebugCubeShadowMap();	
 
-
-
 	if (drawGradientReference)
 		DrawGradientReference();
-
-
 }
 
 void MyDrawController::RenderLightModels(const Camera& cam)

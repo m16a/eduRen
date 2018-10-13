@@ -71,21 +71,20 @@ out vec4 fColor;
 // ---------------------- subroutines ------------------------
 struct Color
 {
-	vec3 ambient;
-	vec3 diffuse;
-	vec3 specular;
+	vec4 ambient;
+	vec4 diffuse;
+	vec4 specular;
 	float shininess;
 };
 
 subroutine Color baseColor(vec2 uv);
 
-
 subroutine (baseColor) Color plainColor(vec2 uv)
 {
 	Color c;
-	c.ambient= material.diffuse;
-	c.diffuse = material.diffuse;
-	c.specular = material.specular;
+	c.ambient = vec4(material.diffuse, 1.0);
+	c.diffuse = vec4(material.diffuse, 1.0);
+	c.specular = vec4(material.specular, 1.0);
 	c.shininess = material.shininess;
 	return c;
 }
@@ -93,12 +92,13 @@ subroutine (baseColor) Color plainColor(vec2 uv)
 subroutine (baseColor) Color textColor(vec2 uv)
 {
 	Color c;
-	c.ambient = texture(inTexture.diff, uv).rgb;
-	c.diffuse = texture(inTexture.diff, uv).rgb;
-	c.specular = texture(inTexture.spec, uv).rgb;
+	c.diffuse  = texture(inTexture.diff, uv);
+	c.ambient = c.diffuse;
+	c.specular = texture(inTexture.spec, uv);
 	c.shininess = 16;
 	return c;
 }
+
 subroutine uniform baseColor baseColorSelection;
 
 // ----------------------reflection map-------------------------------------
@@ -165,7 +165,7 @@ subroutine (shadowMap) float globalShadowMap(vec4 fragPosLightSpace, vec3 normal
 				for(int y = -1; y <= 1; ++y)
 				{
 						float pcfDepth = texture(light.shadowMapTexture, projCoords.xy + vec2(x, y) * texelSize).r; 
-						shadow += currentDepth - bias > pcfDepth ? 0.3 : 0.0;        
+						shadow += currentDepth - bias > pcfDepth ? 0.5 : 0.0;        
 				}    
 		}
 		shadow /= 9.0;
@@ -188,7 +188,7 @@ subroutine (shadowMap) float globalShadowMap(vec4 fragPosLightSpace, vec3 normal
 			closestDepth *= pointLights[i].farPlane;
 			// now test for shadows
 			float bias = 0.5; 
-			shadow += (currentDepth -  bias > closestDepth ? 0.3 : 0.0);
+			shadow += (currentDepth -  bias > closestDepth ? 0.5 : 0.0);
 		}
 	}
 
@@ -199,55 +199,54 @@ subroutine uniform shadowMap shadowMapSelection;
 // -----------------------------------------------------------
 
 
-vec3 CalcPointLight(Color baseColor, PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
+Color CalcPointLight(Color baseColor, PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
-    vec3 lightDir = normalize(light.pos - fragPos);
+	Color res;
+	vec3 lightDir = normalize(light.pos - fragPos);
 
-    // diffuse shading
-    float diff = max(dot(normal, lightDir), 0.0);
+	// diffuse shading
+	float diff = max(dot(normal, lightDir), 0.0);
 
-    // specular shading
-    vec3 reflectDir = reflect(-lightDir, normal);
-		vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), baseColor.shininess);
+	// specular shading
+	vec3 reflectDir = reflect(-lightDir, normal);
+	vec3 halfwayDir = normalize(lightDir + viewDir);
+	float spec = pow(max(dot(normal, halfwayDir), 0.0), baseColor.shininess);
 
-    // attenuation
-    float distance    = length(light.pos - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
+	// attenuation
+	float distance    = length(light.pos - fragPos);
+	float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
 
-    // combine results
-		vec3 ambient  = light.ambient  * baseColor.diffuse;
-    vec3 diffuse  = light.diffuse * diff * baseColor.diffuse;
-    vec3 specular = light.specular * spec * baseColor.specular;
+	// combine results
+	res.ambient  = vec4(light.ambient * baseColor.diffuse.rgb * attenuation, 1.0);
+	res.diffuse  = vec4(light.diffuse * diff * baseColor.diffuse.rgb * attenuation, 1.0);
+	res.specular = vec4(light.specular * spec * baseColor.specular.rgb * attenuation, 1.0);
 
-    ambient *= attenuation;
-    diffuse *= attenuation;
-    specular *= attenuation;
-		/*
-		*/
-
-    return ambient + diffuse + specular;
+	return res;
 }
 
-vec3 CalcDirLight(Color baseColor, DirLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
+Color CalcDirLight(Color baseColor, DirLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
-    // diffuse shading
-    float diff = max(dot(normal, light.dir), 0.0);
-    // specular shading
-    vec3 reflectDir = reflect(-light.dir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), baseColor.shininess);
+	Color res;
+	// diffuse shading
+	float diff = max(dot(normal, light.dir), 0.0);
+	// specular shading
+	vec3 reflectDir = reflect(-light.dir, normal);
+	float spec = pow(max(dot(viewDir, reflectDir), 0.0), baseColor.shininess);
 
-    // combine results
-    vec3 ambient  = light.ambient  * baseColor.diffuse;
-    vec3 diffuse = light.diffuse * diff * baseColor.diffuse;
-    vec3 specular = light.specular * spec * baseColor.specular;
+	// combine results
+	res.ambient  = vec4(light.ambient * baseColor.diffuse.rgb, 1.0);
+	res.diffuse  = vec4(light.diffuse * diff * baseColor.diffuse.rgb, 1.0);
+	res.specular = vec4(light.specular * spec * baseColor.specular.rgb, 1.0);
 
-    return ambient + diffuse + specular;
+	return res;
 }
 
 void main()
 {
-	vec3 res = vec3(0.0, 0.0, 0.0);	
+	Color res;
+	res.ambient = vec4(0.0);
+	res.diffuse = vec4(0.0);
+	res.specular = vec4(0.0);
 
   vec3 norm = normalize(Normal);
 	vec3 viewDir = normalize(camPos - FragPos);
@@ -255,17 +254,27 @@ void main()
 	Color baseColor = baseColorSelection(TexCoords);
 
 	for (int i = 0; i < nPointLights; i++)
-		res += CalcPointLight(baseColor, pointLights[i], norm, FragPos, viewDir); 
+	{
+		Color tmp = CalcPointLight(baseColor, pointLights[i], norm, FragPos, viewDir); 
+		res.ambient += tmp.ambient;
+		res.diffuse += tmp.diffuse;
+		res.specular += tmp.specular;
+	}
 
 	for (int i = 0; i < nDirLights; i++)
-		res += CalcDirLight(baseColor, dirLights[i], norm, FragPos, viewDir); 
+	{
+		Color tmp = CalcDirLight(baseColor, dirLights[i], norm, FragPos, viewDir); 
+		res.ambient += tmp.ambient;
+		res.diffuse += tmp.diffuse;
+		res.specular += tmp.specular;
+	}
 
-	res += reflectionMapSelection(TexCoords); 
+	res.diffuse += vec4(reflectionMapSelection(TexCoords), 0.0); 
 
 	float shadow = shadowMapSelection(FragPosLightSpace, norm, dirLights[0]);
 
-	res *= vec3(1.0 - shadow);
+	fColor = vec4(vec3(res.ambient + (res.diffuse + res.specular) * (1.0 - shadow)), 1.0f);
 
-	fColor = vec4(res, 1.0);
+	//fColor = vec4(baseColor.diffuse);
 	//fColor = vec4(norm, 1.0);
 }
