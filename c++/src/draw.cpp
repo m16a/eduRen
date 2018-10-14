@@ -21,13 +21,15 @@ bool MyDrawController::drawNormals = false;
 bool MyDrawController::isMSAA = false;
 bool MyDrawController::isGammaCorrection = false;
 bool MyDrawController::drawGradientReference = false;
-bool MyDrawController::drawShadows = true;
-bool MyDrawController::debugShadowMaps = false;
+bool MyDrawController::drawShadows = false;
 
+bool MyDrawController::debugShadowMaps = false;
 std::string MyDrawController::debugOnmiShadowLightName = std::string();
 std::vector<std::string> MyDrawController::pointLightNames = std::vector<std::string>();
 
-enum Attrib_IDs {vPosition = 0, vNormals = 1, uvTextCoords = 2};
+bool MyDrawController::bumpMapping = true;
+
+enum Attrib_IDs {vPosition = 0, vNormals = 1, uvTextCoords = 2, vTangents = 3, vBitangents = 4};
 
 CShader* mainShader = nullptr;
 CShader* lightModelShader = nullptr;
@@ -143,7 +145,7 @@ std::string GetUniformTextureName(aiTextureType type)
 		case aiTextureType_SPECULAR:
 			return "inTexture.spec";
 			break;
-		case aiTextureType_NORMALS:
+		case aiTextureType_HEIGHT:
 			return "inTexture.norm";
 			break;
 		case aiTextureType_AMBIENT:
@@ -260,6 +262,8 @@ void MyDrawController::LoadMeshesData()
 	glGenBuffers(meshN, m_resources.elemIDs.data());
 	glGenBuffers(meshN, m_resources.normIDs.data());
 	glGenBuffers(meshN, m_resources.uvIDs.data());
+	glGenBuffers(meshN, m_resources.tangentsIDs.data());
+	glGenBuffers(meshN, m_resources.bitangentsIDs.data());
 
 	for (int i = 0; i < meshN; ++i)
 	{
@@ -294,8 +298,22 @@ void MyDrawController::LoadMeshesData()
 		MergeElements(*pMesh, elms);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_resources.elemIDs[i]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,  elms.size() * sizeof(unsigned int), elms.data(), GL_STATIC_DRAW);
-	}
 
+		
+		if (pMesh->mTangents)
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, m_resources.tangentsIDs[i]);
+			glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(aiVector3D), pMesh->mTangents, GL_STATIC_DRAW);
+			glVertexAttribPointer(vTangents, 3, GL_FLOAT, GL_FALSE, 0, 0);
+			glEnableVertexAttribArray(vTangents);
+
+			assert(pMesh->mTangents && "bitangents should exist");
+			glBindBuffer(GL_ARRAY_BUFFER, m_resources.bitangentsIDs[i]);
+			glBufferData(GL_ARRAY_BUFFER,	pMesh->mNumVertices * sizeof(aiVector3D), pMesh->mBitangents, GL_STATIC_DRAW);
+			glVertexAttribPointer(vBitangents, 3, GL_FLOAT, GL_FALSE, 0, 0);
+			glEnableVertexAttribArray(vBitangents);
+		}
+	}
 }
 
 bool MyDrawController::LoadScene(const std::string& path)
@@ -332,8 +350,7 @@ bool MyDrawController::LoadScene(const std::string& path)
 }
 
 void MyDrawController::Load()
-{
-
+{	
 	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 	
@@ -393,7 +410,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 	else
 	{
 		glActiveTexture(GL_TEXTURE0 + startIndx);
-		currShader->setInt(GetUniformTextureName(type).c_str(), startIndx);
+		currShader->setInt(GetUniformTextureName(type).c_str(), 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 }
@@ -422,7 +439,7 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 			BindTexture(material, aiTextureType_DIFFUSE, ETextureSlot::Diffuse);
 			BindTexture(material, aiTextureType_SPECULAR, ETextureSlot::Specular);
 			BindTexture(material, aiTextureType_AMBIENT, ETextureSlot::Reflection);
-			BindTexture(material, aiTextureType_NORMALS, ETextureSlot::Normals);
+			BindTexture(material, aiTextureType_HEIGHT, ETextureSlot::Normals);
 		}
 		else
 		{
@@ -462,6 +479,10 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 		else
 			data.push_back(std::pair<std::string, std::string>("shadowMapSelection", "emptyShadowMap"));
 
+		if (bumpMapping && material.GetTextureCount(aiTextureType_HEIGHT))
+			data.push_back(std::pair<std::string, std::string>("getNormalSelection", "getNormalBumped"));
+		else
+			data.push_back(std::pair<std::string, std::string>("getNormalSelection", "getNormalSimple"));
 
 		currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
 	}
@@ -510,7 +531,7 @@ void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd, c
 
 void MyDrawController::SetupLights(const std::string& onlyLight)
 {
-	//if (drawSkybox)//TODO:understand why? Answer: looks like samplerCube by default is binded to 0 texture, which is not an cube map
+	if (drawSkybox)
 	{
 		glActiveTexture(GL_TEXTURE0 + ETextureSlot::SkyBox);
 		currShader->setInt("skybox", ETextureSlot::SkyBox);
@@ -569,11 +590,13 @@ void MyDrawController::SetupLights(const std::string& onlyLight)
 
 				currShader->setFloat("farPlane", kTMPFarPlane);
 			}
-			else
+			else if (0)
 			{
 				glActiveTexture(GL_TEXTURE0 + ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
 				currShader->setInt(lightI + "shadowMapTexture", ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
-				glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
+				//glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
+				currShader->setInt(lightI + "shadowMapTexture", 0);
+				glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 			}
 
 			/*
@@ -774,6 +797,13 @@ void MyDrawController::Render(const Camera& cam)
 		BuildShadowMaps();	
 	else
 		ReleaseShadowMaps();
+
+
+	for (int i=0; i<20; ++i)
+	{
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 
 	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr, "");
 

@@ -267,6 +267,9 @@ int main(int, char**)
 					ImGui::PopStyleVar();
 				}
 
+				ImGui::PopItemWidth();
+
+				ImGui::Checkbox("bump maping", &MyDrawController::bumpMapping);	
 				ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
 				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

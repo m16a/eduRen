@@ -4,6 +4,7 @@ in vec3 Normal;
 in vec3 FragPos;
 in vec2 TexCoords;
 in vec4 FragPosLightSpace;
+in mat3 TBN;
 
 struct PointLight
 {
@@ -21,7 +22,7 @@ struct PointLight
 	float farPlane;
 };
 
-#define NR_POINT_LIGHTS 10
+#define NR_POINT_LIGHTS 2
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform int nPointLights;
 
@@ -69,6 +70,25 @@ uniform mat4 model;
 out vec4 fColor;
 
 // ---------------------- subroutines ------------------------
+
+subroutine vec3 getNormal(vec2 uv);
+
+subroutine (getNormal) vec3 getNormalSimple(vec2 uv)
+{
+	return normalize(Normal);
+}
+
+subroutine (getNormal) vec3 getNormalBumped(vec2 uv)
+{
+	//TODO: bad for performance, but less code
+	vec3 n = normalize(texture(inTexture.norm, uv).rgb);
+	n = normalize(n * 2.0 - 1.0);
+	n = normalize(TBN * n);
+	return n;
+}
+
+subroutine uniform getNormal getNormalSelection;
+// -----------------------------------------------------------
 struct Color
 {
 	vec4 ambient;
@@ -111,7 +131,7 @@ subroutine (reflectionMap) vec3 emptyReflectionMap(vec2 uv)
 subroutine (reflectionMap) vec3 reflectionTexture(vec2 uv)
 {
 	vec3 I = normalize(FragPos - camPos);
-	vec3 R = reflect(I, normalize(Normal));
+	vec3 R = reflect(I, getNormalSelection(uv));
 	R = normalize(vec3( rotfix * vec4(R, 0.0)));
 
 	return texture(inTexture.reflection, uv).rgb * texture(skybox, R).rgb;
@@ -120,7 +140,7 @@ subroutine (reflectionMap) vec3 reflectionTexture(vec2 uv)
 subroutine (reflectionMap) vec3 reflectionColor(vec2 uv)
 {
 	vec3 I = normalize(FragPos - camPos);
-	vec3 R = reflect(I, normalize(Normal));
+	vec3 R = reflect(I, getNormalSelection(uv));
 	R = normalize(vec3( rotfix * vec4(R, 0.0)));
 
 	return material.diffuse * texture(skybox, R).rgb;
@@ -199,6 +219,7 @@ subroutine uniform shadowMap shadowMapSelection;
 // -----------------------------------------------------------
 
 
+
 Color CalcPointLight(Color baseColor, PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
 	Color res;
@@ -229,6 +250,7 @@ Color CalcDirLight(Color baseColor, DirLight light, vec3 normal, vec3 fragPos, v
 	Color res;
 	// diffuse shading
 	float diff = max(dot(normal, light.dir), 0.0);
+
 	// specular shading
 	vec3 reflectDir = reflect(-light.dir, normal);
 	float spec = pow(max(dot(viewDir, reflectDir), 0.0), baseColor.shininess);
@@ -248,7 +270,7 @@ void main()
 	res.diffuse = vec4(0.0);
 	res.specular = vec4(0.0);
 
-  vec3 norm = normalize(Normal);
+  vec3 norm = getNormalSelection(TexCoords);
 	vec3 viewDir = normalize(camPos - FragPos);
 
 	Color baseColor = baseColorSelection(TexCoords);
@@ -260,7 +282,7 @@ void main()
 		res.diffuse += tmp.diffuse;
 		res.specular += tmp.specular;
 	}
-
+	
 	for (int i = 0; i < nDirLights; i++)
 	{
 		Color tmp = CalcDirLight(baseColor, dirLights[i], norm, FragPos, viewDir); 

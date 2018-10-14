@@ -25,6 +25,8 @@ struct SResourceHandlers
 	TArr normIDs;
 	TArr uvIDs;
 	TArr texturesIDs;
+	TArr tangentsIDs;
+	TArr bitangentsIDs;
 
 	std::map<std::string, GLuint> texturePathToID;
 
@@ -58,11 +60,13 @@ class MyDrawController
 	static bool drawGradientReference;
 	static bool isMSAA;
 	static bool isGammaCorrection;
-	static bool drawShadows;
 
+	static bool drawShadows;
 	static bool debugShadowMaps;
 	static std::string debugOnmiShadowLightName;
 	static std::vector<std::string> pointLightNames;
+
+	static bool bumpMapping;
 
 	void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection);
 	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap);
