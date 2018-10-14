@@ -67,9 +67,10 @@ class MyDrawController
 	static std::vector<std::string> pointLightNames;
 
 	static bool bumpMapping;
+	static bool HDR;
 
 	void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection);
-	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap);
+	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap, float HDRexposure);
 
 	private:
 	bool LoadScene(const std::string& path);

@@ -103,7 +103,11 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	if (MyDrawController::isMSAA)
 	{
 		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID);
-		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, w, h, GL_TRUE);
+		if (MyDrawController::HDR)
+			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA16F, w, h, GL_TRUE);
+		else
+			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, w, h, GL_TRUE);
+
 		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID, 0);
 		
@@ -115,7 +119,11 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	else
 	{
 		glBindTexture(GL_TEXTURE_2D, offscreen.textID);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		if (MyDrawController::HDR)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGB, GL_FLOAT, NULL);
+		else
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, offscreen.textID, 0);
@@ -136,7 +144,12 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	glDeleteTextures(1, &offscreen.screenTextID);
 	glGenTextures(1, &offscreen.screenTextID);
 	glBindTexture(GL_TEXTURE_2D, offscreen.screenTextID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+	if (MyDrawController::HDR)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGB, GL_FLOAT, NULL);
+	else
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, offscreen.screenTextID, 0);
@@ -202,6 +215,7 @@ int main(int, char**)
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 		bool oldMSAA = MyDrawController::isMSAA;
+		bool oldHDR = MyDrawController::HDR;
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -294,6 +308,28 @@ int main(int, char**)
 				ImGui::PopItemWidth();
 
 				ImGui::Checkbox("bump maping", &MyDrawController::bumpMapping);	
+
+				ImGui::Checkbox("HDR", &MyDrawController::HDR);	
+				if (!MyDrawController::HDR)
+				{
+					ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+					ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+				}
+				static float tmp = 1.0f;
+				ImGui::SliderFloat("Exposure", &tmp, 0.05, 10.0f);
+				const float HDR_exposure = MyDrawController::HDR ? tmp : -1.0f;
+				if (oldHDR != MyDrawController::HDR)
+				{
+					oldHDR = MyDrawController::HDR;
+					sNeedUpdateOffscreenIds = true;
+				}
+
+				if (!MyDrawController::HDR)
+				{
+					ImGui::PopItemFlag();
+					ImGui::PopStyleVar();
+				}
+
 				ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
 				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -358,7 +394,7 @@ int main(int, char**)
 					glClear(GL_COLOR_BUFFER_BIT);
 					glDisable(GL_DEPTH_TEST);
 
-					mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID, MyDrawController::isGammaCorrection, false);
+					mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID, MyDrawController::isGammaCorrection, false, HDR_exposure);
 				}
 
         ImGui::Render();

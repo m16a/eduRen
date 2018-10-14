@@ -6,6 +6,7 @@ uniform vec3 color;
 uniform bool useColor;
 uniform bool doGammaCorrection;
 uniform bool debugShadowMap;
+uniform float HDR_exposure;
 
 uniform sampler2D in_texture;
 
@@ -27,6 +28,11 @@ void main()
 		{
 			resColor = texture(in_texture, TexCoords).rgb;
 		}
+	}
+
+	if (HDR_exposure > 0)
+	{
+		resColor = vec3(1.0) - exp(-resColor * HDR_exposure);
 	}
 	
 	if (doGammaCorrection)

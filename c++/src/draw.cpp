@@ -28,6 +28,7 @@ std::string MyDrawController::debugOnmiShadowLightName = std::string();
 std::vector<std::string> MyDrawController::pointLightNames = std::vector<std::string>();
 
 bool MyDrawController::bumpMapping = true;
+bool MyDrawController::HDR = false;
 
 enum Attrib_IDs {vPosition = 0, vNormals = 1, uvTextCoords = 2, vTangents = 3, vBitangents = 4};
 
@@ -722,7 +723,7 @@ void MyDrawController::BuildShadowMaps()
 			glViewport(0, 0, currCam.Width, currCam.Height);
 
 			if (debugShadowMaps)
-				DrawRect2d(currCam.Width - 215, 10, 200, 200, shadowMap.textureId, false, true);
+				DrawRect2d(currCam.Width - 215, 10, 200, 200, shadowMap.textureId, false, true, -1.0f);
 			
 			shadowMap.frustum = lightCam;
 		}
@@ -883,7 +884,7 @@ static float screenToNDC(float val, float scrSize)
 	return (val / scrSize - 0.5f) * 2.0f;
 }
 
-static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, GLuint textureId, Camera& cam, bool doGammaCorrection, bool debugShadowMap)
+static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, GLuint textureId, Camera& cam, bool doGammaCorrection, bool debugShadowMap, float HDRexposure)
 {
 	const float scrW = cam.Width;
 	const float scrH = cam.Height;
@@ -941,6 +942,8 @@ static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& colo
 
 	rect2dShader->setBool("doGammaCorrection", doGammaCorrection);
 
+	rect2dShader->setFloat("HDR_exposure", HDRexposure);
+
 	glBindVertexArray(quadVAO);
 	glDrawArrays(GL_TRIANGLES, 0, sizeof(quadVertices));	
 
@@ -950,13 +953,13 @@ static void DrawRect2d(float x, float y, float w, float h, const glm::vec3& colo
 
 void MyDrawController::DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection)
 {
-	::DrawRect2d(x, y, w, h, color, 0, GetCam(), doGammaCorrection, false);
+	::DrawRect2d(x, y, w, h, color, 0, GetCam(), doGammaCorrection, false, -1.0f);
 }
 
-void MyDrawController::DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap)
+void MyDrawController::DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap, float HDRexposure)
 {
 	glm::vec3 color;
-	::DrawRect2d(x, y, w, h, color, textureId, GetCam(), doGammaCorrection, debugShadowMap);
+	::DrawRect2d(x, y, w, h, color, textureId, GetCam(), doGammaCorrection, debugShadowMap, HDRexposure);
 }
 
 void MyDrawController::DrawGradientReference()
