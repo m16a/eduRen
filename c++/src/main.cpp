@@ -93,32 +93,47 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	glDeleteFramebuffers(1, &offscreen.FB);
 	glGenFramebuffers(1, &offscreen.FB);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
-
 	glDeleteTextures(1, &offscreen.textID);
-	glDeleteRenderbuffers(1, &offscreen.rbo);//bad :(
-
 	glGenTextures(1, &offscreen.textID);
 
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID);
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, w, h, GL_TRUE);
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID, 0);
-
+	glDeleteRenderbuffers(1, &offscreen.rbo);//bad :( , can be reused
 	glGenRenderbuffers(1, &offscreen.rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, offscreen.rbo);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, w, h); // use a single renderbuffer object for both a depth AND stencil buffer.
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, offscreen.rbo); // now actually attach it
+
+	glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
+	if (MyDrawController::isMSAA)
+	{
+		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID);
+		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, w, h, GL_TRUE);
+		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, offscreen.textID, 0);
+		
+		glBindRenderbuffer(GL_RENDERBUFFER, offscreen.rbo);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, w, h); // use a single renderbuffer object for both a depth AND stencil buffer.
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, offscreen.rbo); // now actually attach it
+	}
+	else
+	{
+		glBindTexture(GL_TEXTURE_2D, offscreen.textID);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, offscreen.textID, 0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		
+		glBindRenderbuffer(GL_RENDERBUFFER, offscreen.rbo);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h); // use a single renderbuffer object for both a depth AND stencil buffer.
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, offscreen.rbo); // now actually attach it
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// configure second post-processing framebuffer
 	glDeleteFramebuffers(1, &offscreen.intermediateFB);
 	glGenFramebuffers(1, &offscreen.intermediateFB);
-
 	glBindFramebuffer(GL_FRAMEBUFFER, offscreen.intermediateFB);
 
 	glDeleteTextures(1, &offscreen.screenTextID);
-
 	glGenTextures(1, &offscreen.screenTextID);
 	glBindTexture(GL_TEXTURE_2D, offscreen.screenTextID);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -126,6 +141,7 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w, int 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, offscreen.screenTextID, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	sNeedUpdateOffscreenIds = false;
 }
@@ -185,6 +201,7 @@ int main(int, char**)
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+		bool oldMSAA = MyDrawController::isMSAA;
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -223,9 +240,16 @@ int main(int, char**)
 				ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);	ImGui::SameLine(200);
 				ImGui::Checkbox("specular", &MyDrawController::isSpecular);	
 				ImGui::Checkbox("wire mode", &MyDrawController::isWireMode); ImGui::SameLine(100);
-				ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
 				ImGui::Checkbox("normals", &MyDrawController::drawNormals);	
+				ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);	
+
 				ImGui::Checkbox("MSAA", &MyDrawController::isMSAA);
+				if (oldMSAA != MyDrawController::isMSAA)
+				{
+					oldMSAA = MyDrawController::isMSAA;
+					sNeedUpdateOffscreenIds = true;
+				}
+
 				ImGui::Checkbox("gamma correction", &MyDrawController::isGammaCorrection);	ImGui::SameLine(200);
 				ImGui::Checkbox("draw gradient", &MyDrawController::drawGradientReference);	
 				ImGui::Checkbox("shadows", &MyDrawController::drawShadows);	
@@ -307,11 +331,7 @@ int main(int, char**)
         glfwGetFramebufferSize(window, &display_w, &display_h);
 				UpdateOffscreenRenderIDs(offscreen, display_w, display_h);
 
-				if (MyDrawController::isMSAA)
-					glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
-				else
-					glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+				glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
         glViewport(0, 0, display_w, display_h);
 
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -324,13 +344,9 @@ int main(int, char**)
 				cam.Width = sWinWidth;
 				cam.Height = sWinHeight;
 
-				if (MyDrawController::isGammaCorrection && !MyDrawController::isMSAA)
-					glEnable(GL_FRAMEBUFFER_SRGB);
-
 				mdc.Render(cam);
 
 				//draw offscreen to screen
-				if (MyDrawController::isMSAA)
 				{
 					glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
 					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, offscreen.intermediateFB);
@@ -345,12 +361,8 @@ int main(int, char**)
 					mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID, MyDrawController::isGammaCorrection, false);
 				}
 
-				if (MyDrawController::isGammaCorrection && !MyDrawController::isMSAA)
-					glDisable(GL_FRAMEBUFFER_SRGB);
-
         ImGui::Render();
         glfwSwapBuffers(window);
-
 
 				high_resolution_clock::time_point end = high_resolution_clock::now();
 				timeSpan = duration_cast<duration<float>>(end - start);
