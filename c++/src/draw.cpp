@@ -29,6 +29,8 @@ std::vector<std::string> MyDrawController::pointLightNames = std::vector<std::st
 
 bool MyDrawController::bumpMapping = true;
 bool MyDrawController::HDR = false;
+bool MyDrawController::deferredShading = false;
+bool MyDrawController::debugGBuffer = false;
 
 enum Attrib_IDs {vPosition = 0, vNormals = 1, uvTextCoords = 2, vTangents = 3, vBitangents = 4};
 
@@ -40,6 +42,7 @@ CShader* rect2dShader = nullptr;
 CShader* shadowMapShader = nullptr;
 CShader* shadowCubeMapShader = nullptr;
 CShader* debugShadowCubeMapShader = nullptr;
+CShader* deferredGeomPathShader = nullptr;
 CShader* currShader = nullptr;
 
 static const float kTMPFarPlane = 100.0f; //TODO: refactor
@@ -218,6 +221,7 @@ MyDrawController::~MyDrawController()
 	delete shadowMapShader;
 	delete shadowCubeMapShader;
 	delete debugShadowCubeMapShader;
+	delete deferredGeomPathShader;
 
 	ReleaseShadowMaps();
 }
@@ -371,6 +375,7 @@ void MyDrawController::Load()
 	shadowMapShader = new CShader("shaders/shadowMap.vert", "shaders/shadowMap.frag");
 	shadowCubeMapShader = new CShader("shaders/shadowCubeMap.vert", "shaders/shadowCubeMap.frag", "shaders/shadowCubeMap.geom");
 	debugShadowCubeMapShader = new CShader("shaders/debugCubeShadowMap.vert", "shaders/debugCubeShadowMap.frag"); 
+	deferredGeomPathShader = new CShader("shaders/deferredGeomPath.vert", "shaders/deferredGeomPath.frag"); 
 
 	InitLightModel();
 	m_resources.skyboxTextID = LoadCubemap();
@@ -431,7 +436,7 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 	
 	currShader->use();
 
-	if (currShader == mainShader)
+	if (currShader == mainShader || currShader == deferredGeomPathShader)
 	{
 		CShader::TSubroutineTypeToInstance data;
 		if (material.GetTextureCount(aiTextureType_DIFFUSE))
@@ -790,6 +795,102 @@ void MyDrawController::BuildShadowMaps()
 	}
 }
 
+void MyDrawController::RenderInternalForward(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram, const std::string& shadowMapForLight)
+{
+	RecursiveRender(scene, nd, cam, overrideProgram, shadowMapForLight);
+}
+
+static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam)
+{
+	//check window resize	
+	
+	
+	if (gBuffer.FBO)
+		return;
+
+	GLint oldFBO = 0;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+
+	const int w = (int)cam.Width;
+	const int h = (int)cam.Height;
+
+	glGenFramebuffers(1, &gBuffer.FBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.FBO);
+	unsigned int gPosition, gNormal, gColorSpec;
+		
+	// - position color buffer
+	glGenTextures(1, &gBuffer.pos);
+	glBindTexture(GL_TEXTURE_2D, gBuffer.pos);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, NULL);
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gBuffer.pos, 0);
+		
+	// - normal color buffer
+	glGenTextures(1, &gBuffer.normal);
+	glBindTexture(GL_TEXTURE_2D, gBuffer.normal);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gBuffer.normal, 0);
+		
+	// - color + specular color buffer
+	glGenTextures(1, &gBuffer.albedoSpec);
+	glBindTexture(GL_TEXTURE_2D, gBuffer.albedoSpec);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gBuffer.albedoSpec, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+		
+	// - tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
+	unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(3, attachments);
+
+	//create depth RBO	
+	glGenRenderbuffers(1, &gBuffer.depthRBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, gBuffer.depthRBO);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gBuffer.depthRBO);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+			assert(!"Framebuffer not complete!");
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+}
+
+void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram, const std::string& shadowMapForLight)
+{
+	GenGBuffer(m_resources.GBuffer, cam);
+
+	GLint oldFBO = 0;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, m_resources.GBuffer.FBO);
+
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	
+	//geometry path
+	RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam, deferredGeomPathShader, "");
+
+	glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+
+	if (debugGBuffer)
+	{
+		DrawRect2d(cam.Width - 315, 730, 300, 200, m_resources.GBuffer.pos, false, false, -1.0f);
+		DrawRect2d(cam.Width - 315, 515, 300, 200, m_resources.GBuffer.normal, false, false, -1.0f);
+		DrawRect2d(cam.Width - 315, 300, 300, 200, m_resources.GBuffer.albedoSpec, false, false, -1.0f);
+	}
+}
+
 void MyDrawController::Render(const Camera& cam)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
@@ -799,17 +900,19 @@ void MyDrawController::Render(const Camera& cam)
 	else
 		ReleaseShadowMaps();
 
-
 	for (int i=0; i<20; ++i)
 	{
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr, "");
+	if (deferredShading)
+		RenderInternalDeferred(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr, "");
+	else
+		RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr, "");
 
 	if (drawNormals)
-		RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader, "");
+		RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader, "");
 	
 	RenderLightModels(cam);
 

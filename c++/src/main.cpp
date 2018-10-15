@@ -330,6 +330,21 @@ int main(int, char**)
 					ImGui::PopStyleVar();
 				}
 
+				ImGui::Checkbox("deferred shading", &MyDrawController::deferredShading);	ImGui::SameLine(200);
+
+				if (!MyDrawController::deferredShading)
+				{
+					ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+					ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+				}
+
+				ImGui::Checkbox("debug GBUffer", &MyDrawController::debugGBuffer);
+				if (!MyDrawController::deferredShading)
+				{
+					ImGui::PopItemFlag();
+					ImGui::PopStyleVar();
+				}
+
 				ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
 				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

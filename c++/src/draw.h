@@ -16,6 +16,16 @@
 
 class CShader;
 constexpr const int kMaxMeshesCount = 100;
+
+struct SGBuffer
+{
+	GLuint FBO {0};
+	GLuint pos {0};
+	GLuint normal {0};
+	GLuint albedoSpec {0};
+	GLuint depthRBO {0};
+};
+
 struct SResourceHandlers
 {
 	using TArr = std::array<GLuint, kMaxMeshesCount>;
@@ -35,6 +45,8 @@ struct SResourceHandlers
 	GLuint cubeVertID;
 	GLuint cubeElemID;
 	GLuint cubeVAOID;
+
+	SGBuffer GBuffer;	
 
 	void Release();
 };
@@ -68,6 +80,8 @@ class MyDrawController
 
 	static bool bumpMapping;
 	static bool HDR;
+	static bool deferredShading;
+	static bool debugGBuffer;
 
 	void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color, bool doGammaCorrection);
 	void DrawRect2d(float x, float y, float w, float h, GLuint textureId, bool doGammaCorrection, bool debugShadowMap, float HDRexposure);
@@ -76,6 +90,8 @@ class MyDrawController
 	bool LoadScene(const std::string& path);
 	void InitLightModel();
 	void RecursiveRender(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram, const std::string& shadowMapForLight);
+	void RenderInternalForward(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram, const std::string& shadowMapForLight);
+	void RenderInternalDeferred(const aiScene& scene, const aiNode* nd, const Camera& cam, CShader* overrideProgram, const std::string& shadowMapForLight);
 	void RenderSkyBox(const Camera& cam);
 	void RenderLightModels(const Camera& cam);
 	void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
