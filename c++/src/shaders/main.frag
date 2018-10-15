@@ -105,7 +105,7 @@ subroutine (baseColor) Color plainColor(vec2 uv)
 	c.ambient = vec4(material.diffuse, 1.0);
 	c.diffuse = vec4(material.diffuse, 1.0);
 	c.specular = vec4(material.specular, 1.0);
-	c.shininess = material.shininess;
+	c.shininess = 16;//material.shininess;
 	return c;
 }
 

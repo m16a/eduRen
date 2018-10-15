@@ -43,6 +43,7 @@ CShader* shadowMapShader = nullptr;
 CShader* shadowCubeMapShader = nullptr;
 CShader* debugShadowCubeMapShader = nullptr;
 CShader* deferredGeomPathShader = nullptr;
+CShader* deferredLightPathShader = nullptr;
 CShader* currShader = nullptr;
 
 static const float kTMPFarPlane = 100.0f; //TODO: refactor
@@ -222,6 +223,7 @@ MyDrawController::~MyDrawController()
 	delete shadowCubeMapShader;
 	delete debugShadowCubeMapShader;
 	delete deferredGeomPathShader;
+	delete deferredLightPathShader; 
 
 	ReleaseShadowMaps();
 }
@@ -376,6 +378,7 @@ void MyDrawController::Load()
 	shadowCubeMapShader = new CShader("shaders/shadowCubeMap.vert", "shaders/shadowCubeMap.frag", "shaders/shadowCubeMap.geom");
 	debugShadowCubeMapShader = new CShader("shaders/debugCubeShadowMap.vert", "shaders/debugCubeShadowMap.frag"); 
 	deferredGeomPathShader = new CShader("shaders/deferredGeomPath.vert", "shaders/deferredGeomPath.frag"); 
+	deferredLightPathShader = new CShader("shaders/deferredLightPath.vert", "shaders/deferredLightPath.frag"); 
 
 	InitLightModel();
 	m_resources.skyboxTextID = LoadCubemap();
@@ -871,7 +874,7 @@ void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode
 	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, m_resources.GBuffer.FBO);
 
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
@@ -883,11 +886,61 @@ void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode
 
 	glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
 
+	//light path
+	deferredLightPathShader->use();
+	currShader = deferredLightPathShader;
+	SetupLights("");
+
+	deferredLightPathShader->setVec3("camPos", cam.Position);
+
+	{
+		const float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+			// positions   // texCoords
+			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+			 1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+			 1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		};
+
+		// screen quad VAO
+		GLuint quadVAO, quadVBO;
+		glGenVertexArrays(1, &quadVAO);
+		glGenBuffers(1, &quadVBO);
+		glBindVertexArray(quadVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+		glActiveTexture(GL_TEXTURE0);
+		deferredLightPathShader->setInt("gPosition", 0);
+		glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.pos);
+
+		glActiveTexture(GL_TEXTURE0 + 1);
+		deferredLightPathShader->setInt("gNormal", 1);
+		glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.normal);
+
+		glActiveTexture(GL_TEXTURE0 + 2);
+		deferredLightPathShader->setInt("gAlbedoSpec", 2);
+		glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.albedoSpec);
+
+		glBindVertexArray(quadVAO);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(quadVertices));	
+
+		glDeleteBuffers(1, &quadVBO);
+		glDeleteVertexArrays(1, &quadVAO);
+	}	
+
 	if (debugGBuffer)
 	{
+		glDisable(GL_DEPTH_TEST);
 		DrawRect2d(cam.Width - 315, 730, 300, 200, m_resources.GBuffer.pos, false, false, -1.0f);
 		DrawRect2d(cam.Width - 315, 515, 300, 200, m_resources.GBuffer.normal, false, false, -1.0f);
 		DrawRect2d(cam.Width - 315, 300, 300, 200, m_resources.GBuffer.albedoSpec, false, false, -1.0f);
+		DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.GBuffer.albedoSpec, false, true, -1.0f);
+		glEnable(GL_DEPTH_TEST);
 	}
 }
 

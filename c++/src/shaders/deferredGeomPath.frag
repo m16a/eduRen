@@ -131,6 +131,7 @@ void main()
 	gPosition = FragPos;
 	gNormal = norm; 
 	gAlbedoSpec.rgb = baseColor.diffuse.rgb;
+	gAlbedoSpec.a = baseColor.specular.r;
 
 	//emty calls for backward compatibility with forward rendering
 	reflectionMapSelection();
