@@ -54,12 +54,13 @@ void main()
 	float Specular = texture(gAlbedoSpec, TexCoords).a;
 	
 	// then calculate lighting as usual
-	vec3 lighting  = Diffuse * 0.0; // hard-coded ambient component
 	vec3 viewDir  = normalize(camPos - FragPos);
+	vec3 lighting = vec3(0);
 	for(int i = 0; i < nPointLights; ++i)
 	{
+
 			// diffuse
-			vec3 lightDir = normalize(pointLights[i].pos- FragPos);
+			vec3 lightDir = normalize(pointLights[i].pos - FragPos);
 			vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * pointLights[i].diffuse;
 			// specular
 			vec3 halfwayDir = normalize(lightDir + viewDir);  
@@ -68,6 +69,7 @@ void main()
 			// attenuation
 			float distance = length(pointLights[i].pos - FragPos);
 			float attenuation = 1.0 / (pointLights[i].constant + pointLights[i].linear * distance + pointLights[i].quadratic * distance * distance);
+			lighting += Diffuse * pointLights[i].ambient * attenuation;
 			diffuse *= attenuation;
 			specular *= attenuation;
 			lighting += diffuse + specular;        
