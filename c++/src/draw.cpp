@@ -933,6 +933,12 @@ void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode
 		glDeleteVertexArrays(1, &quadVAO);
 	}	
 
+	//copy depth buffer to default FBO
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_resources.GBuffer.FBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldFBO);
+	glBlitFramebuffer(0, 0, (int)cam.Width, (int)cam.Height, 0, 0, (int)cam.Width, (int)cam.Height, GL_DEPTH_BUFFER_BIT, GL_NEAREST	);
+	glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+
 	if (debugGBuffer)
 	{
 		glDisable(GL_DEPTH_TEST);
