@@ -240,7 +240,7 @@ Color CalcPointLight(Color baseColor, PointLight light, vec3 normal, vec3 fragPo
 	// combine results
 	res.ambient  = vec4(light.ambient * baseColor.diffuse.rgb * attenuation, 1.0);
 	res.diffuse  = vec4(light.diffuse * diff * baseColor.diffuse.rgb * attenuation, 1.0);
-	res.specular = vec4(light.specular * spec * baseColor.specular.rgb * attenuation, 1.0);
+	res.specular = vec4(light.specular * spec * baseColor.specular.r * attenuation, 1.0);
 
 	return res;
 }
@@ -258,7 +258,7 @@ Color CalcDirLight(Color baseColor, DirLight light, vec3 normal, vec3 fragPos, v
 	// combine results
 	res.ambient  = vec4(light.ambient * baseColor.diffuse.rgb, 1.0);
 	res.diffuse  = vec4(light.diffuse * diff * baseColor.diffuse.rgb, 1.0);
-	res.specular = vec4(light.specular * spec * baseColor.specular.rgb, 1.0);
+	res.specular = vec4(light.specular * spec * baseColor.specular.r, 1.0);
 
 	return res;
 }
