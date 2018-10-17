@@ -361,10 +361,11 @@ void MyDrawController::Load()
 	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 	
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.obj");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/bunny/reconstruction/bun_zipper_res4.ply");
 	assert(res && "cannot load scene");
@@ -388,7 +389,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type, in
 {
 	//lazy loading textures
 	unsigned int texCnt = mat.GetTextureCount(type);
-	assert(texCnt <= 1 && "multiple textures for one type is not supported");
+	//assert(texCnt <= 1 && "multiple textures for one type is not supported");
 
 	if (texCnt)
 	{
@@ -599,13 +600,14 @@ void MyDrawController::SetupLights(const std::string& onlyLight)
 
 				currShader->setFloat("farPlane", kTMPFarPlane);
 			}
-			else if (0)
+			else
 			{
+				//TODO:ugly!!!
 				glActiveTexture(GL_TEXTURE0 + ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
 				currShader->setInt(lightI + "shadowMapTexture", ETextureSlot::OmniShadowMapStart + pointLightIndx-1);
-				//glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
+				glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 				currShader->setInt(lightI + "shadowMapTexture", 0);
-				glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+			//	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 			}
 
 			/*
@@ -621,7 +623,7 @@ void MyDrawController::SetupLights(const std::string& onlyLight)
 			lightI = buff; 
 			currShader->setVec3(lightI + "dir", glm::vec3(t[2]));
 
-			if (drawShadows && 1)
+			if (drawShadows)
 			{
 				SShadowMap& sm = m_shadowMaps[light.mName.C_Str()];
 
@@ -632,6 +634,13 @@ void MyDrawController::SetupLights(const std::string& onlyLight)
 				glActiveTexture(GL_TEXTURE0 + ETextureSlot::DirShadowMap);
 				currShader->setInt(lightI + "shadowMapTexture", ETextureSlot::DirShadowMap);
 				glBindTexture(GL_TEXTURE_2D, sm.textureId);
+			}
+			else
+			{
+				glActiveTexture(GL_TEXTURE0 + ETextureSlot::DirShadowMap);
+				currShader->setInt(lightI + "shadowMapTexture", ETextureSlot::DirShadowMap);
+				glBindTexture(GL_TEXTURE_2D, 0);
+
 			}
 		}
 
@@ -893,6 +902,14 @@ void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode
 
 	deferredLightPathShader->setVec3("camPos", cam.Position);
 
+	CShader::TSubroutineTypeToInstance data;
+	if (drawShadows)
+		data.push_back(std::pair<std::string, std::string>("shadowMapSelection", "globalShadowMap"));
+	else
+		data.push_back(std::pair<std::string, std::string>("shadowMapSelection", "emptyShadowMap"));
+
+	currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
+
 	{
 		const float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
 			// positions   // texCoords
@@ -914,16 +931,16 @@ void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 
-		glActiveTexture(GL_TEXTURE0);
-		deferredLightPathShader->setInt("gPosition", 0);
+		glActiveTexture(GL_TEXTURE0+1);
+		deferredLightPathShader->setInt("gPosition", 1);
 		glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.pos);
 
-		glActiveTexture(GL_TEXTURE0 + 1);
-		deferredLightPathShader->setInt("gNormal", 1);
+		glActiveTexture(GL_TEXTURE0 + 2);
+		deferredLightPathShader->setInt("gNormal", 2);
 		glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.normal);
 
-		glActiveTexture(GL_TEXTURE0 + 2);
-		deferredLightPathShader->setInt("gAlbedoSpec", 2);
+		glActiveTexture(GL_TEXTURE0 + 3);
+		deferredLightPathShader->setInt("gAlbedoSpec", 3);
 		glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.albedoSpec);
 
 		glBindVertexArray(quadVAO);
