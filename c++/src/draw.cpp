@@ -992,9 +992,13 @@ void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode
 void MyDrawController::Render(const Camera& cam)
 {
 	
-	if (isMSAA && deferredShading)
+	if (deferredShading)
 	{
-		isMSAA = false;
+		if (isMSAA)
+			isMSAA = false;
+
+		if (isWireMode )
+			isWireMode = false;
 	}
 
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
@@ -1018,6 +1022,8 @@ void MyDrawController::Render(const Camera& cam)
 	if (drawNormals)
 		RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam, normalShader, "");
 	
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 	RenderLightModels(cam);
 
 	if (drawSkybox)
