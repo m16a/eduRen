@@ -969,6 +969,12 @@ void MyDrawController::RenderInternalDeferred(const aiScene& scene, const aiNode
 
 void MyDrawController::Render(const Camera& cam)
 {
+	
+	if (isMSAA && deferredShading)
+	{
+		isMSAA = false;
+	}
+
 	glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
 	if (drawShadows)
