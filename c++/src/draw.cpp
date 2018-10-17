@@ -815,16 +815,38 @@ void MyDrawController::RenderInternalForward(const aiScene& scene, const aiNode*
 static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam)
 {
 	//check window resize	
-	
-	
+	GLint tw = 0;
+	GLint th = 0;
+	bool needReGenOnResize = false;
 	if (gBuffer.FBO)
+	{
+		glBindTexture(GL_TEXTURE_2D, gBuffer.pos);
+		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tw);
+		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &th);
+		//glGetTextureLevelParameteriv(gBuffer.pos, 0, GL_TEXTURE_WIDTH, &tw);
+		//glGetTextureLevelParameteriv(gBuffer.pos, 0, GL_TEXTURE_HEIGHT, &th);
+	}
+
+	const int w = (int)cam.Width;
+	const int h = (int)cam.Height;
+
+	needReGenOnResize = (w != tw || h != th);
+	
+	if (gBuffer.FBO && !needReGenOnResize)
 		return;
+
+	//delete previous
+	if (needReGenOnResize && gBuffer.FBO)
+	{
+		GLuint arr[] = {gBuffer.pos, gBuffer.normal, gBuffer.albedoSpec};
+		glDeleteTextures(3, arr);
+
+		glDeleteRenderbuffers(1, &gBuffer.depthRBO);
+	}
 
 	GLint oldFBO = 0;
 	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
 
-	const int w = (int)cam.Width;
-	const int h = (int)cam.Height;
 
 	glGenFramebuffers(1, &gBuffer.FBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.FBO);
