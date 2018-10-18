@@ -24,7 +24,6 @@ static const int WINDOW_HEIGHT = 800;
 static int sWinWidth = WINDOW_WIDTH;
 static int sWinHeight = WINDOW_HEIGHT;
 
-
 struct SOffscreenRenderIDs
 {
 		GLuint FB {0};//framebuffer
@@ -307,7 +306,38 @@ int main(int, char**)
 
 				ImGui::PopItemWidth();
 
-				ImGui::Checkbox("bump maping", &MyDrawController::bumpMapping);	
+				{
+					ImGui::Checkbox("bump maping", &MyDrawController::bumpMapping);	
+
+					if (!MyDrawController::bumpMapping)
+					{
+						ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+						ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+					}
+
+					ImGui::SameLine(150);
+					ImGui::PushItemWidth(150);
+
+					const char* types[] = {"Normal", "Height"};
+
+					static int bumpType = 0;
+					ImGui::Combo("method", &bumpType, types, 2);
+
+					if (bumpType == 0)
+						MyDrawController::bumpMappingType = Normal;
+					else if (bumpType == 1)
+						MyDrawController::bumpMappingType = Height;
+					else
+						assert(0);
+
+					ImGui::PopItemWidth();
+
+					if (!MyDrawController::bumpMapping)
+					{
+						ImGui::PopItemFlag();
+						ImGui::PopStyleVar();
+					}
+				}
 
 				ImGui::Checkbox("HDR", &MyDrawController::HDR);	
 				if (!MyDrawController::HDR)

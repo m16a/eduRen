@@ -28,6 +28,7 @@ std::string MyDrawController::debugOnmiShadowLightName = std::string();
 std::vector<std::string> MyDrawController::pointLightNames = std::vector<std::string>();
 
 bool MyDrawController::bumpMapping = true;
+EBumpMappingType MyDrawController::bumpMappingType = Normal;
 bool MyDrawController::HDR = false;
 bool MyDrawController::deferredShading = false;
 bool MyDrawController::debugGBuffer = false;
@@ -358,10 +359,10 @@ bool MyDrawController::LoadScene(const std::string& path)
 
 void MyDrawController::Load()
 {	
-	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 	
-	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
+	bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 	//bool res = LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
@@ -834,7 +835,8 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam)
 	
 	if (gBuffer.FBO && !needReGenOnResize)
 		return;
-
+	//std::cout << "recalc" << w << " " << tw << " " << h << " " << th<< std::endl;
+	//
 	//delete previous
 	if (needReGenOnResize && gBuffer.FBO)
 	{

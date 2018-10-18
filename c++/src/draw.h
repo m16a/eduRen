@@ -51,6 +51,12 @@ struct SResourceHandlers
 	void Release();
 };
 
+enum EBumpMappingType
+{
+	Normal,
+	Height
+};
+
 class MyDrawController
 {
 	public:
@@ -79,6 +85,8 @@ class MyDrawController
 	static std::vector<std::string> pointLightNames;
 
 	static bool bumpMapping;
+	static EBumpMappingType bumpMappingType;
+
 	static bool HDR;
 	static bool deferredShading;
 	static bool debugGBuffer;
