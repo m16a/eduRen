@@ -10,12 +10,16 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 uniform mat4 lightSpaceMatrix;
+uniform vec3 camPos;
 
 out vec3 Normal;
 out vec3 FragPos;
 out vec2 TexCoords;
 out vec4 FragPosLightSpace;
 out mat3 TBN;
+
+out vec3 TangentCamPos;
+out vec3 TangentFragPos;
 
 void main()
 {
@@ -29,6 +33,10 @@ void main()
 	vec3 B = normalize(vec3(model * vec4(vBitangent, 0.0)));
 	vec3 N = normalize(vec3(model * vec4(vNormal,    0.0)));
 	TBN = mat3(T, B, N);
+
+
+	TangentCamPos = TBN * camPos;
+	TangentFragPos = TBN * FragPos;
 
 	gl_Position = proj * view * model * vPosition;
 }

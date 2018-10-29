@@ -491,9 +491,26 @@ void MyDrawController::SetupMaterial(const aiMesh& mesh, CShader* overrideProgra
 			data.push_back(std::pair<std::string, std::string>("shadowMapSelection", "emptyShadowMap"));
 
 		if (bumpMapping && material.GetTextureCount(aiTextureType_HEIGHT))
-			data.push_back(std::pair<std::string, std::string>("getNormalSelection", "getNormalBumped"));
+		{
+			if (bumpMappingType == Normal)
+			{
+				data.push_back(std::pair<std::string, std::string>("getNormalSelection", "getNormalBumped"));
+				//data.push_back(std::pair<std::string, std::string>("getHeightSelection", "getHeightEmpty"));
+			}
+			else if (bumpMappingType == Height)
+			{
+				//data.push_back(std::pair<std::string, std::string>("getHeightlSelection", "getHeightBumped"));
+				data.push_back(std::pair<std::string, std::string>("getNormalSelection", "getNormalSimple"));
+
+				data.push_back(std::pair<std::string, std::string>("baseColorSelection", "textHeightColor"));
+			}
+			else
+				assert(0);
+		}
 		else
+		{
 			data.push_back(std::pair<std::string, std::string>("getNormalSelection", "getNormalSimple"));
+		}
 
 		currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
 	}

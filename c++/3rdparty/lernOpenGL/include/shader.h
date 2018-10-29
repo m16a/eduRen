@@ -111,15 +111,19 @@ public:
 			glGetProgramStageiv(ID, programType, GL_ACTIVE_SUBROUTINE_UNIFORM_LOCATIONS, &subUniformsCount);
 			//std::cout << subUniformsCount << std::endl;
 			assert(subUniformsCount && "no subroutine uniforms");
-			assert(subUniformsCount == data.size() && "subroutime uniforms count mismatch");
+			//assert(subUniformsCount == data.size() && "subroutime uniforms count mismatch");
 			std::vector<GLuint> indices(subUniformsCount);
 			
 			for ( auto& p : data)
 			{
 				GLint selectorLoc = glGetSubroutineUniformLocation(ID, programType, p.first.c_str());
 				GLuint index = glGetSubroutineIndex(ID, programType, p.second.c_str());
-				//std::cout << p.first << ":" << selectorLoc << " " << p.second << ":" << index << std::endl;
-				assert(selectorLoc > -1 && "bad subroutine uniform location");
+				if (selectorLoc <= -1)
+				{
+					std::cout << p.first << ":" << selectorLoc << " " << p.second << ":" << index << std::endl;
+					assert(0 && "bad subroutine uniform location");
+				}
+
 				assert(index != GL_INVALID_INDEX && "bad subroutine index");
 
 				indices[selectorLoc] = index;

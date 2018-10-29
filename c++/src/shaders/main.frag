@@ -6,6 +6,9 @@ in vec2 TexCoords;
 in vec4 FragPosLightSpace;
 in mat3 TBN;
 
+in vec3 TangentCamPos;
+in vec3 TangentFragPos;
+
 struct PointLight
 {
 	vec3 pos;
@@ -89,6 +92,47 @@ subroutine (getNormal) vec3 getNormalBumped(vec2 uv)
 
 subroutine uniform getNormal getNormalSelection;
 // -----------------------------------------------------------
+/*
+vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
+{ 
+    float height =  texture(inTexture.norm, texCoords).r;    
+    vec2 p = viewDir.xy / viewDir.z * (height * 0.1);
+    return texCoords - p;    
+} 
+
+subroutine vec4 getHeight(sampler2D tex, vec2 uv);
+
+subroutine (getHeight) vec4 getHeightEmpty(sampler2D tex, vec2 uv)
+{
+	return texture(tex, uv);
+}
+
+subroutine (getHeight) vec4 getHeightBumped(sampler2D tex, vec2 uv)
+{
+	//vec3 viewDir   = normalize(TangentCamPos - TangentFragPos);
+  //vec2 texCoords = ParallaxMapping(uv,  viewDir);
+	return texture(tex, uv);
+}
+
+subroutine uniform getHeight getHeightSelection;
+ */
+
+vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
+{ 
+    float height =  texture(inTexture.norm, texCoords).r;    
+    vec2 p = viewDir.xy / viewDir.z * (height * 0.1);
+    return texCoords - p;    
+} 
+
+
+vec4 getHeightBumped(sampler2D tex, vec2 uv)
+{
+	vec3 viewDir   = normalize(TangentCamPos - TangentFragPos);
+  vec2 texCoords = ParallaxMapping(uv,  viewDir);
+	return texture(tex, texCoords);
+}
+
+// -----------------------------------------------------------
 struct Color
 {
 	vec4 ambient;
@@ -114,7 +158,17 @@ subroutine (baseColor) Color textColor(vec2 uv)
 	Color c;
 	c.diffuse  = texture(inTexture.diff, uv);
 	c.ambient = c.diffuse;
-	c.specular = texture(inTexture.spec, uv);
+	c.diffuse  = texture(inTexture.spec, uv);
+	c.shininess = 16;
+	return c;
+}
+
+subroutine (baseColor) Color textHeightColor(vec2 uv)
+{
+	Color c;
+	c.diffuse  = getHeightBumped(inTexture.diff, uv);
+	c.ambient = c.diffuse;
+	c.diffuse  = getHeightBumped(inTexture.spec, uv);
 	c.shininess = 16;
 	return c;
 }
