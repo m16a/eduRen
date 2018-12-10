@@ -35,6 +35,12 @@ find_package(OpenGL)
 target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} dl assimp)
 
 
+#formating
+add_custom_command(TARGET eduRen 
+										PRE_BUILD
+										COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/format.sh
+										COMMENT "Formating...")
+
 #find_library(SERVER_LINK_LIB server ${CMAKE_SOURCE_DIR}/server/lib/)
 #include_directories(${CMAKE_SOURCE_DIR}/server/lib/include/)
 #include_directories(${CMAKE_SOURCE_DIR}/protocol/include/)
