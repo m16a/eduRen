@@ -342,8 +342,8 @@ int main(int, char**) {
   glfwMakeContextCurrent(window);
   glfwSwapInterval(1);  // Enable vsync
   glfwSetWindowSizeCallback(window, windowSizeChanged);
-
   gl3wInit();
+
   MyDrawController mdc;
 
   // Setup ImGui binding
@@ -364,25 +364,6 @@ int main(int, char**) {
   std::vector<float> fpss;
   fpss.reserve(kFPScnt);
 
-  duration<float> timeSpan;
-
-  CShader offToBackShader("shaders/rect2d.vert", "shaders/rect2d.frag");
-
-  // screen quad VAO
-  GLuint quadVAO, quadVBO;
-  glGenVertexArrays(1, &quadVAO);
-  glGenBuffers(1, &quadVBO);
-  glBindVertexArray(quadVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices,
-               GL_STATIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                        (void*)(2 * sizeof(float)));
-
-  // Main loop
   while (!glfwWindowShouldClose(window)) {
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
@@ -435,7 +416,7 @@ int main(int, char**) {
     glfwSwapBuffers(window);
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
-    timeSpan = duration_cast<duration<float>>(end - start);
+    duration<float> timeSpan = duration_cast<duration<float>>(end - start);
 
     if (fpss.size() > kFPScnt) fpss.erase(fpss.begin());
 
