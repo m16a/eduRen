@@ -47,6 +47,10 @@ static void error_callback(int error, const char* description) {
   fprintf(stderr, "Error %d: %s\n", error, description);
 }
 
+ImVec4 sClearColor = ImVec4(0.0f / 255.0f, 0.0f / 255.0f, 0.0f / 255.0f, 1.00f);
+// ImVec4 sClearColor = ImVec4(115.0f/255.0f, 140.0f/255.0f, 153.0f/255.0f,
+// 1.00f);
+//
 void checkKeys(MyDrawController& mdc, ImGuiIO& io) {
   const float dt = ImGui::GetIO().DeltaTime;
   const bool haste = io.KeyShift;
@@ -327,6 +331,56 @@ void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
   }
 }
 
+inline void ClampFPS(float currFrameMS) {
+  if (MyDrawController::clamp60FPS) {
+    float secLeft = 1.0f / 60.0f - currFrameMS;
+    if (secLeft > 0.0f) {
+      struct timespec t, empty;
+      t.tv_sec = 0.0f;
+      t.tv_nsec = secLeft * 1e9f;
+      nanosleep(&t, &empty);
+    }
+  }
+}
+
+inline void Render(MyDrawController& mdc) {
+  UpdateOffscreenRenderIDs(offscreen, sWinWidth, sWinHeight);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
+  glViewport(0, 0, sWinWidth, sWinHeight);
+
+  glClearColor(sClearColor.x, sClearColor.y, sClearColor.z, sClearColor.w);
+  glEnable(GL_DEPTH_TEST);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_BACK);
+
+  Camera& cam = mdc.GetCam();
+  cam.Width = sWinWidth;
+  cam.Height = sWinHeight;
+
+  mdc.Render(cam);
+
+  // draw offscreen to screen
+  {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, offscreen.intermediateFB);
+    glBlitFramebuffer(0, 0, sWinWidth, sWinHeight, 0, 0, sWinWidth, sWinHeight,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    // now render quad with scene's visuals as its texture image
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+
+    mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID,
+                   MyDrawController::isGammaCorrection, false,
+                   MyDrawController::HDR_exposure);
+  }
+}
+
 int main(int, char**) {
   using namespace std::chrono;
 
@@ -351,11 +405,6 @@ int main(int, char**) {
   ImGuiIO& io = ImGui::GetIO();
   mdc.Load();
 
-  ImVec4 clear_color =
-      ImVec4(0.0f / 255.0f, 0.0f / 255.0f, 0.0f / 255.0f, 1.00f);
-  // ImVec4 clear_color = ImVec4(115.0f/255.0f, 140.0f/255.0f, 153.0f/255.0f,
-  // 1.00f);
-
   aiLogStream stream;
   stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE, "assimp_log.txt");
   aiAttachLogStream(&stream);
@@ -373,44 +422,7 @@ int main(int, char**) {
 
     DrawUI(mdc, fpss);
 
-    // Rendering
-    int display_w, display_h;
-    glfwGetFramebufferSize(window, &display_w, &display_h);
-    UpdateOffscreenRenderIDs(offscreen, display_w, display_h);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
-    glViewport(0, 0, display_w, display_h);
-
-    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-    glEnable(GL_DEPTH_TEST);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-
-    Camera& cam = mdc.GetCam();
-    cam.Width = sWinWidth;
-    cam.Height = sWinHeight;
-
-    mdc.Render(cam);
-
-    // draw offscreen to screen
-    {
-      glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
-      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, offscreen.intermediateFB);
-      glBlitFramebuffer(0, 0, sWinWidth, sWinHeight, 0, 0, sWinWidth,
-                        sWinHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-      // now render quad with scene's visuals as its texture image
-      glBindFramebuffer(GL_FRAMEBUFFER, 0);
-      glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-      glClear(GL_COLOR_BUFFER_BIT);
-      glDisable(GL_DEPTH_TEST);
-
-      mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID,
-                     MyDrawController::isGammaCorrection, false,
-                     MyDrawController::HDR_exposure);
-    }
+    Render(mdc);
 
     ImGui::Render();
     glfwSwapBuffers(window);
@@ -422,15 +434,7 @@ int main(int, char**) {
 
     fpss.push_back(timeSpan.count());
 
-    if (MyDrawController::clamp60FPS) {
-      float secLeft = 1.0f / 60.0f - timeSpan.count();
-      if (secLeft > 0.0f) {
-        struct timespec t, empty;
-        t.tv_sec = 0.0f;
-        t.tv_nsec = secLeft * 1e9f;
-        nanosleep(&t, &empty);
-      }
-    }
+    ClampFPS(timeSpan.count());
   }
 
   // Cleanup
