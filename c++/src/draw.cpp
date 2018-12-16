@@ -12,6 +12,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+bool MyDrawController::clamp60FPS = true;
 bool MyDrawController::isWireMode = false;
 bool MyDrawController::isAmbient = true;
 bool MyDrawController::isDiffuse = true;
@@ -31,6 +32,7 @@ std::vector<std::string> MyDrawController::pointLightNames =
 bool MyDrawController::bumpMapping = true;
 EBumpMappingType MyDrawController::bumpMappingType = Normal;
 bool MyDrawController::HDR = false;
+float MyDrawController::HDR_exposure = 0.0f;
 bool MyDrawController::deferredShading = false;
 bool MyDrawController::debugGBuffer = false;
 
@@ -350,14 +352,16 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-  // bool res =
-  // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/untitled.blend");
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
+      "untitled.blend");
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 
-  bool res = LoadScene(
-      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
-      "sponza.blend");
+  // bool res = LoadScene(
+  //    "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
+  //    "sponza.blend");
+
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
   // bool res =

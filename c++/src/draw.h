@@ -62,6 +62,7 @@ class MyDrawController {
   CInputHandler& GetInputHandler() { return m_inputHandler; }
   const aiScene* GetScene() const { return m_pScene.get(); }
 
+  static bool clamp60FPS;
   static bool isWireMode;
   static bool isAmbient;
   static bool isDiffuse;
@@ -81,6 +82,7 @@ class MyDrawController {
   static EBumpMappingType bumpMappingType;
 
   static bool HDR;
+  static float HDR_exposure;
   static bool deferredShading;
   static bool debugGBuffer;
 

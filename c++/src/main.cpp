@@ -23,6 +23,7 @@ static const int WINDOW_WIDTH = 1280;
 static const int WINDOW_HEIGHT = 800;
 static int sWinWidth = WINDOW_WIDTH;
 static int sWinHeight = WINDOW_HEIGHT;
+static bool sNeedUpdateOffscreenIds = true;
 
 struct SOffscreenRenderIDs {
   GLuint FB{0};  // framebuffer
@@ -34,7 +35,6 @@ struct SOffscreenRenderIDs {
 };
 
 static SOffscreenRenderIDs offscreen;
-static bool sNeedUpdateOffscreenIds = true;
 
 float quadVertices[] = {  // vertex attributes for a quad that fills the entire
                           // screen in Normalized Device Coordinates.
@@ -154,6 +154,179 @@ static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w,
   sNeedUpdateOffscreenIds = false;
 }
 
+void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
+  Camera& cam = mdc.GetCam();
+
+  static bool oldMSAA = MyDrawController::isMSAA;
+  static bool oldHDR = MyDrawController::HDR;
+
+  const glm::vec3& camPos = cam.Position;
+  ImGui::Text("Cam pos: %.2f %.2f %.2f", camPos[0], camPos[1], camPos[2]);
+
+  unsigned int meshN = 0;
+  unsigned int lightsN = 0;
+  unsigned int materialsN = 0;
+  unsigned int texturesN = 0;
+  if (mdc.GetScene()) {
+    meshN = mdc.GetScene()->mNumMeshes;
+    lightsN = mdc.GetScene()->mNumLights;
+    materialsN = mdc.GetScene()->mNumMaterials;
+    texturesN = mdc.GetScene()->mNumTextures;
+  }
+  ImGui::Text("meshes:%d, lights:%d, materials:%d, embededTextures:%d", meshN,
+              lightsN, materialsN, texturesN);
+
+  ImGui::Checkbox("ambient", &MyDrawController::isAmbient);
+  ImGui::SameLine(100);
+  ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);
+  ImGui::SameLine(200);
+  ImGui::Checkbox("specular", &MyDrawController::isSpecular);
+  ImGui::Checkbox("wire mode", &MyDrawController::isWireMode);
+  ImGui::SameLine(100);
+  ImGui::Checkbox("normals", &MyDrawController::drawNormals);
+  ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);
+
+  ImGui::Checkbox("MSAA", &MyDrawController::isMSAA);
+  if (oldMSAA != MyDrawController::isMSAA) {
+    oldMSAA = MyDrawController::isMSAA;
+    sNeedUpdateOffscreenIds = true;
+  }
+
+  ImGui::Checkbox("gamma correction", &MyDrawController::isGammaCorrection);
+  ImGui::SameLine(200);
+  ImGui::Checkbox("draw gradient", &MyDrawController::drawGradientReference);
+  ImGui::Checkbox("shadows", &MyDrawController::drawShadows);
+
+  if (!MyDrawController::drawShadows) {
+    ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+  }
+
+  ImGui::Checkbox("debugShadowMaps", &MyDrawController::debugShadowMaps);
+  ImGui::SameLine(150);
+  ImGui::PushItemWidth(150);
+
+  static int item = -1;
+
+  const char** arr = nullptr;
+  if (!MyDrawController::pointLightNames.empty()) {
+    arr = new const char*[MyDrawController::pointLightNames
+                              .size()];  // TODO::ugly
+    for (int i = 0; i < MyDrawController::pointLightNames.size(); ++i) {
+      arr[i] = MyDrawController::pointLightNames[i].c_str();
+    }
+
+    ImGui::Combo("point light", &item, arr,
+                 MyDrawController::pointLightNames.size());
+
+    if (item > -1) MyDrawController::debugOnmiShadowLightName = arr[item];
+  }
+
+  if (arr) delete[] arr;
+
+  if (!MyDrawController::drawShadows) {
+    ImGui::PopItemFlag();
+    ImGui::PopStyleVar();
+  }
+
+  ImGui::PopItemWidth();
+
+  {
+    ImGui::Checkbox("bump maping", &MyDrawController::bumpMapping);
+
+    if (!MyDrawController::bumpMapping) {
+      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    }
+
+    ImGui::SameLine(150);
+    ImGui::PushItemWidth(150);
+
+    const char* types[] = {"Normal", "Height"};
+
+    static int bumpType = 0;
+    ImGui::Combo("method", &bumpType, types, 2);
+
+    if (bumpType == 0)
+      MyDrawController::bumpMappingType = Normal;
+    else if (bumpType == 1)
+      MyDrawController::bumpMappingType = Height;
+    else
+      assert(0);
+
+    ImGui::PopItemWidth();
+
+    if (!MyDrawController::bumpMapping) {
+      ImGui::PopItemFlag();
+      ImGui::PopStyleVar();
+    }
+  }
+
+  ImGui::Checkbox("HDR", &MyDrawController::HDR);
+  if (!MyDrawController::HDR) {
+    ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+  }
+  static float tmp = 1.0f;
+  ImGui::SliderFloat("Exposure", &tmp, 0.05, 10.0f);
+  MyDrawController::HDR_exposure = MyDrawController::HDR ? tmp : -1.0f;
+  if (oldHDR != MyDrawController::HDR) {
+    oldHDR = MyDrawController::HDR;
+    sNeedUpdateOffscreenIds = true;
+  }
+
+  if (!MyDrawController::HDR) {
+    ImGui::PopItemFlag();
+    ImGui::PopStyleVar();
+  }
+
+  ImGui::Checkbox("deferred shading", &MyDrawController::deferredShading);
+  ImGui::SameLine(200);
+
+  if (!MyDrawController::deferredShading) {
+    ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+  }
+
+  ImGui::Checkbox("debug GBUffer", &MyDrawController::debugGBuffer);
+  if (!MyDrawController::deferredShading) {
+    ImGui::PopItemFlag();
+    ImGui::PopStyleVar();
+  }
+
+  ImGui::SliderInt("fov", &cam.FOV, 10, 90);
+
+  ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+              1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+  ImGui::Text(
+      "Real time %.2f/%.2f/%.2f ms",
+      *(std::min_element(fpss.begin(), fpss.end())) * 1000.0f,
+      std::accumulate(fpss.begin(), fpss.end(), 0.0f) / fpss.size() * 1000.0f,
+      *(std::max_element(fpss.begin(), fpss.end())) * 1000.0f);
+
+  ImGui::PlotLines("Frame ms", fpss.data(), fpss.size(), 0, nullptr, 0.0f,
+                   0.010, ImVec2(0, 80));
+  ImGui::Checkbox("Clamp 60 FPS", &MyDrawController::clamp60FPS);
+
+  // 2. Show another simple window. In most cases you will use an explicit
+  // Begin/End pair to name the window.
+  static bool show_test_window = true;
+  static bool show_another_window = false;
+
+  if (show_another_window) {
+    ImGui::Begin("Another Window", &show_another_window);
+    ImGui::Text("Hello from another window!");
+    ImGui::End();
+  }
+
+  // 3. Show the ImGui test window. Most of the sample code is in
+  // ImGui::ShowTestWindow().
+  if (show_test_window) {
+    ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
+    ImGui::ShowTestWindow(&show_test_window);
+  }
+}
+
 int main(int, char**) {
   using namespace std::chrono;
 
@@ -178,8 +351,6 @@ int main(int, char**) {
   ImGuiIO& io = ImGui::GetIO();
   mdc.Load();
 
-  bool show_test_window = true;
-  bool show_another_window = false;
   ImVec4 clear_color =
       ImVec4(0.0f / 255.0f, 0.0f / 255.0f, 0.0f / 255.0f, 1.00f);
   // ImVec4 clear_color = ImVec4(115.0f/255.0f, 140.0f/255.0f, 153.0f/255.0f,
@@ -194,7 +365,6 @@ int main(int, char**) {
   fpss.reserve(kFPScnt);
 
   duration<float> timeSpan;
-  bool clamp60FPS = true;
 
   CShader offToBackShader("shaders/rect2d.vert", "shaders/rect2d.frag");
 
@@ -211,196 +381,16 @@ int main(int, char**) {
   glEnableVertexAttribArray(1);
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
                         (void*)(2 * sizeof(float)));
-  bool oldMSAA = MyDrawController::isMSAA;
-  bool oldHDR = MyDrawController::HDR;
 
   // Main loop
   while (!glfwWindowShouldClose(window)) {
-    // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
-    // tell if dear imgui wants to use your inputs.
-    // - When io.WantCaptureMouse is true, do not dispatch mouse input data to
-    // your main application.
-    // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input
-    // data to your main application.
-    // Generally you may always pass all inputs to dear imgui, and hide them
-    // from your application based on those two flags.
-
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
     glfwPollEvents();
     ImGui_ImplGlfwGL3_NewFrame();
     checkKeys(mdc, io);
 
-    Camera& cam = mdc.GetCam();
-
-    const glm::vec3& camPos = cam.Position;
-    ImGui::Text("Cam pos: %.2f %.2f %.2f", camPos[0], camPos[1], camPos[2]);
-
-    unsigned int meshN = 0;
-    unsigned int lightsN = 0;
-    unsigned int materialsN = 0;
-    unsigned int texturesN = 0;
-    if (mdc.GetScene()) {
-      meshN = mdc.GetScene()->mNumMeshes;
-      lightsN = mdc.GetScene()->mNumLights;
-      materialsN = mdc.GetScene()->mNumMaterials;
-      texturesN = mdc.GetScene()->mNumTextures;
-    }
-    ImGui::Text("meshes:%d, lights:%d, materials:%d, embededTextures:%d", meshN,
-                lightsN, materialsN, texturesN);
-
-    ImGui::Checkbox("ambient", &MyDrawController::isAmbient);
-    ImGui::SameLine(100);
-    ImGui::Checkbox("diffuse", &MyDrawController::isDiffuse);
-    ImGui::SameLine(200);
-    ImGui::Checkbox("specular", &MyDrawController::isSpecular);
-    ImGui::Checkbox("wire mode", &MyDrawController::isWireMode);
-    ImGui::SameLine(100);
-    ImGui::Checkbox("normals", &MyDrawController::drawNormals);
-    ImGui::Checkbox("skybox", &MyDrawController::drawSkybox);
-
-    ImGui::Checkbox("MSAA", &MyDrawController::isMSAA);
-    if (oldMSAA != MyDrawController::isMSAA) {
-      oldMSAA = MyDrawController::isMSAA;
-      sNeedUpdateOffscreenIds = true;
-    }
-
-    ImGui::Checkbox("gamma correction", &MyDrawController::isGammaCorrection);
-    ImGui::SameLine(200);
-    ImGui::Checkbox("draw gradient", &MyDrawController::drawGradientReference);
-    ImGui::Checkbox("shadows", &MyDrawController::drawShadows);
-
-    if (!MyDrawController::drawShadows) {
-      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-    }
-
-    ImGui::Checkbox("debugShadowMaps", &MyDrawController::debugShadowMaps);
-    ImGui::SameLine(150);
-    ImGui::PushItemWidth(150);
-
-    static int item = -1;
-
-    const char** arr = nullptr;
-    if (!MyDrawController::pointLightNames.empty()) {
-      arr = new const char*[MyDrawController::pointLightNames
-                                .size()];  // TODO::ugly
-      for (int i = 0; i < MyDrawController::pointLightNames.size(); ++i) {
-        arr[i] = MyDrawController::pointLightNames[i].c_str();
-      }
-
-      ImGui::Combo("point light", &item, arr,
-                   MyDrawController::pointLightNames.size());
-
-      if (item > -1) MyDrawController::debugOnmiShadowLightName = arr[item];
-    }
-
-    if (arr) delete[] arr;
-
-    if (!MyDrawController::drawShadows) {
-      ImGui::PopItemFlag();
-      ImGui::PopStyleVar();
-    }
-
-    ImGui::PopItemWidth();
-
-    {
-      ImGui::Checkbox("bump maping", &MyDrawController::bumpMapping);
-
-      if (!MyDrawController::bumpMapping) {
-        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
-                            ImGui::GetStyle().Alpha * 0.5f);
-      }
-
-      ImGui::SameLine(150);
-      ImGui::PushItemWidth(150);
-
-      const char* types[] = {"Normal", "Height"};
-
-      static int bumpType = 0;
-      ImGui::Combo("method", &bumpType, types, 2);
-
-      if (bumpType == 0)
-        MyDrawController::bumpMappingType = Normal;
-      else if (bumpType == 1)
-        MyDrawController::bumpMappingType = Height;
-      else
-        assert(0);
-
-      ImGui::PopItemWidth();
-
-      if (!MyDrawController::bumpMapping) {
-        ImGui::PopItemFlag();
-        ImGui::PopStyleVar();
-      }
-    }
-
-    ImGui::Checkbox("HDR", &MyDrawController::HDR);
-    if (!MyDrawController::HDR) {
-      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-    }
-    static float tmp = 1.0f;
-    ImGui::SliderFloat("Exposure", &tmp, 0.05, 10.0f);
-    const float HDR_exposure = MyDrawController::HDR ? tmp : -1.0f;
-    if (oldHDR != MyDrawController::HDR) {
-      oldHDR = MyDrawController::HDR;
-      sNeedUpdateOffscreenIds = true;
-    }
-
-    if (!MyDrawController::HDR) {
-      ImGui::PopItemFlag();
-      ImGui::PopStyleVar();
-    }
-
-    ImGui::Checkbox("deferred shading", &MyDrawController::deferredShading);
-    ImGui::SameLine(200);
-
-    if (!MyDrawController::deferredShading) {
-      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-    }
-
-    ImGui::Checkbox("debug GBUffer", &MyDrawController::debugGBuffer);
-    if (!MyDrawController::deferredShading) {
-      ImGui::PopItemFlag();
-      ImGui::PopStyleVar();
-    }
-
-    ImGui::SliderInt("fov", &cam.FOV, 10, 90);
-
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::Text(
-        "Real time %.2f/%.2f/%.2f ms",
-        *(std::min_element(fpss.begin(), fpss.end())) * 1000.0f,
-        std::accumulate(fpss.begin(), fpss.end(), 0.0f) / fpss.size() * 1000.0f,
-        *(std::max_element(fpss.begin(), fpss.end())) * 1000.0f);
-
-    if (fpss.size() > kFPScnt) fpss.erase(fpss.begin());
-
-    // fpss.push_back(ImGui::GetIO().DeltaTime);
-    fpss.push_back(timeSpan.count());
-
-    ImGui::PlotLines("Frame ms", fpss.data(), fpss.size(), 0, nullptr, 0.0f,
-                     0.010, ImVec2(0, 80));
-    ImGui::Checkbox("Clamp 60 FPS", &clamp60FPS);
-
-    // 2. Show another simple window. In most cases you will use an explicit
-    // Begin/End pair to name the window.
-    if (show_another_window) {
-      ImGui::Begin("Another Window", &show_another_window);
-      ImGui::Text("Hello from another window!");
-      ImGui::End();
-    }
-
-    // 3. Show the ImGui test window. Most of the sample code is in
-    // ImGui::ShowTestWindow().
-    if (show_test_window) {
-      ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
-      ImGui::ShowTestWindow(&show_test_window);
-    }
+    DrawUI(mdc, fpss);
 
     // Rendering
     int display_w, display_h;
@@ -417,6 +407,7 @@ int main(int, char**) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
+    Camera& cam = mdc.GetCam();
     cam.Width = sWinWidth;
     cam.Height = sWinHeight;
 
@@ -436,7 +427,8 @@ int main(int, char**) {
       glDisable(GL_DEPTH_TEST);
 
       mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID,
-                     MyDrawController::isGammaCorrection, false, HDR_exposure);
+                     MyDrawController::isGammaCorrection, false,
+                     MyDrawController::HDR_exposure);
     }
 
     ImGui::Render();
@@ -444,11 +436,16 @@ int main(int, char**) {
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
     timeSpan = duration_cast<duration<float>>(end - start);
-    if (clamp60FPS) {
-      float secLeft = 1.0f / 60 - timeSpan.count();
-      if (secLeft > 0) {
+
+    if (fpss.size() > kFPScnt) fpss.erase(fpss.begin());
+
+    fpss.push_back(timeSpan.count());
+
+    if (MyDrawController::clamp60FPS) {
+      float secLeft = 1.0f / 60.0f - timeSpan.count();
+      if (secLeft > 0.0f) {
         struct timespec t, empty;
-        t.tv_sec = 0;
+        t.tv_sec = 0.0f;
         t.tv_nsec = secLeft * 1e9f;
         nanosleep(&t, &empty);
       }
