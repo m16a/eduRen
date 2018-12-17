@@ -96,20 +96,24 @@ class MyDrawController {
   bool LoadScene(const std::string& path);
   void InitLightModel();
   void RecursiveRender(const aiScene& scene, const aiNode* nd,
-                       const Camera& cam, CShader* overrideProgram,
+                       const Camera& cam,
+                       std::shared_ptr<CShader>& overrideProgram,
                        const std::string& shadowMapForLight);
   void RenderInternalForward(const aiScene& scene, const aiNode* nd,
-                             const Camera& cam, CShader* overrideProgram,
+                             const Camera& cam,
+                             std::shared_ptr<CShader>& overrideProgram,
                              const std::string& shadowMapForLight);
   void RenderInternalDeferred(const aiScene& scene, const aiNode* nd,
-                              const Camera& cam, CShader* overrideProgram,
+                              const Camera& cam,
+                              std::shared_ptr<CShader>& overrideProgram,
                               const std::string& shadowMapForLight);
   void RenderSkyBox(const Camera& cam);
   void RenderLightModels(const Camera& cam);
   void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
   void SetupLights(const std::string& onlyLight);
   void LoadMeshesData();
-  void SetupMaterial(const aiMesh& mesh, CShader* overrideProgram);
+  void SetupMaterial(const aiMesh& mesh,
+                     std::shared_ptr<CShader>& overrideProgram);
   void SetupProgramTransforms(const Camera& cam, const glm::mat4& model,
                               const glm::mat4& view, const glm::mat4& proj);
   void BuildShadowMaps();

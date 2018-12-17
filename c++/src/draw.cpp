@@ -44,17 +44,19 @@ enum Attrib_IDs {
   vBitangents = 4
 };
 
-CShader* mainShader = nullptr;
-CShader* lightModelShader = nullptr;
-CShader* skyboxShader = nullptr;
-CShader* normalShader = nullptr;
-CShader* rect2dShader = nullptr;
-CShader* shadowMapShader = nullptr;
-CShader* shadowCubeMapShader = nullptr;
-CShader* debugShadowCubeMapShader = nullptr;
-CShader* deferredGeomPathShader = nullptr;
-CShader* deferredLightPathShader = nullptr;
-CShader* currShader = nullptr;
+std::shared_ptr<CShader> mainShader;
+std::shared_ptr<CShader> lightModelShader;
+std::shared_ptr<CShader> skyboxShader;
+std::shared_ptr<CShader> normalShader;
+std::shared_ptr<CShader> rect2dShader;
+std::shared_ptr<CShader> shadowMapShader;
+std::shared_ptr<CShader> shadowCubeMapShader;
+std::shared_ptr<CShader> debugShadowCubeMapShader;
+std::shared_ptr<CShader> deferredGeomPathShader;
+std::shared_ptr<CShader> deferredLightPathShader;
+std::shared_ptr<CShader> currShader;
+
+std::shared_ptr<CShader> nullShader;
 
 static const float kTMPFarPlane = 100.0f;  // TODO: refactor
 
@@ -216,17 +218,6 @@ MyDrawController::MyDrawController() : m_inputHandler(*this) {}
 
 MyDrawController::~MyDrawController() {
   m_resources.Release();
-
-  delete mainShader;
-  delete skyboxShader;
-  delete normalShader;
-  delete rect2dShader;
-  delete shadowMapShader;
-  delete shadowCubeMapShader;
-  delete debugShadowCubeMapShader;
-  delete deferredGeomPathShader;
-  delete deferredLightPathShader;
-
   ReleaseShadowMaps();
 }
 
@@ -249,7 +240,8 @@ void MyDrawController::InitLightModel() {
   glBufferData(GL_ARRAY_BUFFER, 3 * cubeVerticiesCount * sizeof(GLfloat),
                cubeVertices, GL_STATIC_DRAW);
 
-  lightModelShader = new CShader("shaders/light.vert", "shaders/light.frag");
+  lightModelShader =
+      std::make_unique<CShader>("shaders/light.vert", "shaders/light.frag");
 
   glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(vPosition);
@@ -377,22 +369,26 @@ void MyDrawController::Load() {
   assert(res && "cannot load scene");
 
   LoadMeshesData();
-  mainShader = new CShader("shaders/main.vert", "shaders/main.frag");
-  skyboxShader = new CShader("shaders/skybox.vert", "shaders/skybox.frag");
-  normalShader = new CShader("shaders/normal.vert", "shaders/normal.frag",
-                             "shaders/normal.geom");
-  rect2dShader = new CShader("shaders/rect2d.vert", "shaders/rect2d.frag");
-  shadowMapShader =
-      new CShader("shaders/shadowMap.vert", "shaders/shadowMap.frag");
-  shadowCubeMapShader =
-      new CShader("shaders/shadowCubeMap.vert", "shaders/shadowCubeMap.frag",
-                  "shaders/shadowCubeMap.geom");
-  debugShadowCubeMapShader = new CShader("shaders/debugCubeShadowMap.vert",
-                                         "shaders/debugCubeShadowMap.frag");
-  deferredGeomPathShader = new CShader("shaders/deferredGeomPath.vert",
-                                       "shaders/deferredGeomPath.frag");
-  deferredLightPathShader = new CShader("shaders/deferredLightPath.vert",
-                                        "shaders/deferredLightPath.frag");
+  mainShader =
+      std::make_shared<CShader>("shaders/main.vert", "shaders/main.frag");
+
+  skyboxShader =
+      std::make_shared<CShader>("shaders/skybox.vert", "shaders/skybox.frag");
+  normalShader = std::make_shared<CShader>(
+      "shaders/normal.vert", "shaders/normal.frag", "shaders/normal.geom");
+  rect2dShader =
+      std::make_shared<CShader>("shaders/rect2d.vert", "shaders/rect2d.frag");
+  shadowMapShader = std::make_shared<CShader>("shaders/shadowMap.vert",
+                                              "shaders/shadowMap.frag");
+  shadowCubeMapShader = std::make_shared<CShader>("shaders/shadowCubeMap.vert",
+                                                  "shaders/shadowCubeMap.frag",
+                                                  "shaders/shadowCubeMap.geom");
+  debugShadowCubeMapShader = std::make_shared<CShader>(
+      "shaders/debugCubeShadowMap.vert", "shaders/debugCubeShadowMap.frag");
+  deferredGeomPathShader = std::make_shared<CShader>(
+      "shaders/deferredGeomPath.vert", "shaders/deferredGeomPath.frag");
+  deferredLightPathShader = std::make_shared<CShader>(
+      "shaders/deferredLightPath.vert", "shaders/deferredLightPath.frag");
 
   InitLightModel();
   m_resources.skyboxTextID = LoadCubemap();
@@ -430,8 +426,8 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
   }
 }
 
-void MyDrawController::SetupMaterial(const aiMesh& mesh,
-                                     CShader* overrideProgram) {
+void MyDrawController::SetupMaterial(
+    const aiMesh& mesh, std::shared_ptr<CShader>& overrideProgram) {
   assert(GetScene()->mNumMaterials);
 
   unsigned int matIndx = mesh.mMaterialIndex;
@@ -535,10 +531,10 @@ void MyDrawController::SetupProgramTransforms(const Camera& cam,
   }
 }
 
-void MyDrawController::RecursiveRender(const aiScene& scene, const aiNode* nd,
-                                       const Camera& cam,
-                                       CShader* overrideProgram,
-                                       const std::string& shadowMapForLight) {
+void MyDrawController::RecursiveRender(
+    const aiScene& scene, const aiNode* nd, const Camera& cam,
+    std::shared_ptr<CShader>& overrideProgram,
+    const std::string& shadowMapForLight) {
   aiMatrix4x4 m = nd->mTransformation;
   glm::mat4 model = aiMatrix4x4ToGlm(&m);
   glm::mat4 view = cam.GetViewMatrix();
@@ -847,7 +843,8 @@ void MyDrawController::BuildShadowMaps() {
 
 void MyDrawController::RenderInternalForward(
     const aiScene& scene, const aiNode* nd, const Camera& cam,
-    CShader* overrideProgram, const std::string& shadowMapForLight) {
+    std::shared_ptr<CShader>& overrideProgram,
+    const std::string& shadowMapForLight) {
   RecursiveRender(scene, nd, cam, overrideProgram, shadowMapForLight);
 }
 
@@ -942,7 +939,8 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
 
 void MyDrawController::RenderInternalDeferred(
     const aiScene& scene, const aiNode* nd, const Camera& cam,
-    CShader* overrideProgram, const std::string& shadowMapForLight) {
+    std::shared_ptr<CShader>& overrideProgram,
+    const std::string& shadowMapForLight) {
   GenGBuffer(m_resources.GBuffer, cam);
 
   GLint oldFBO = 0;
@@ -1063,10 +1061,10 @@ void MyDrawController::Render(const Camera& cam) {
   }
 
   if (deferredShading)
-    RenderInternalDeferred(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr,
-                           "");
+    RenderInternalDeferred(*m_pScene.get(), m_pScene->mRootNode, cam,
+                           nullShader, "");
   else
-    RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam, nullptr,
+    RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam, nullShader,
                           "");
 
   if (drawNormals)
