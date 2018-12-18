@@ -156,9 +156,9 @@ subroutine (baseColor) Color plainColor(vec2 uv)
 subroutine (baseColor) Color textColor(vec2 uv)
 {
 	Color c;
-	c.diffuse  = texture(inTexture.diff, uv);
+	c.diffuse = texture(inTexture.diff, uv);
 	c.ambient = c.diffuse;
-	c.diffuse  = texture(inTexture.spec, uv);
+	c.specular = texture(inTexture.spec, uv);
 	c.shininess = 16;
 	return c;
 }

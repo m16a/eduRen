@@ -109,7 +109,7 @@ class MyDrawController {
                               const std::string& shadowMapForLight);
   void RenderSkyBox(const Camera& cam);
   void RenderLightModels(const Camera& cam);
-  void BindTexture(const aiMaterial& mat, aiTextureType type, int startIndx);
+  void BindTexture(const aiMaterial& mat, aiTextureType type, int indx);
   void SetupLights(const std::string& onlyLight);
   void LoadMeshesData();
   void SetupMaterial(const aiMesh& mesh,

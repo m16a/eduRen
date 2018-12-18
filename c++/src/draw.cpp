@@ -395,7 +395,7 @@ void MyDrawController::Load() {
 }
 
 void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
-                                   int startIndx) {
+                                   int indx) {
   // lazy loading textures
   unsigned int texCnt = mat.GetTextureCount(type);
   // assert(texCnt <= 1 && "multiple textures for one type is not supported");
@@ -413,15 +413,15 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
       } else
         id = it->second;
 
-      glActiveTexture(GL_TEXTURE0 + startIndx);
-      currShader->setInt(GetUniformTextureName(type).c_str(), startIndx);
+      glActiveTexture(GL_TEXTURE0 + indx);
+      currShader->setInt(GetUniformTextureName(type).c_str(), indx);
       glBindTexture(GL_TEXTURE_2D, id);
     } else {
       std::cout << "Texture reading fail\n";
     }
   } else {
-    glActiveTexture(GL_TEXTURE0 + startIndx);
-    currShader->setInt(GetUniformTextureName(type).c_str(), 0);
+    glActiveTexture(GL_TEXTURE0 + indx);
+    currShader->setInt(GetUniformTextureName(type).c_str(), indx);
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 }
@@ -624,9 +624,9 @@ void MyDrawController::SetupLights(const std::string& onlyLight) {
         currShader->setInt(
             lightI + "shadowMapTexture",
             ETextureSlot::OmniShadowMapStart + pointLightIndx - 1);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
-        currShader->setInt(lightI + "shadowMapTexture", 0);
-        //	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+        // glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
+        // currShader->setInt(lightI + "shadowMapTexture", 0);
       }
 
       /*
@@ -883,7 +883,6 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
 
   glGenFramebuffers(1, &gBuffer.FBO);
   glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.FBO);
-  unsigned int gPosition, gNormal, gColorSpec;
 
   // - position color buffer
   glGenTextures(1, &gBuffer.pos);
@@ -1055,11 +1054,6 @@ void MyDrawController::Render(const Camera& cam) {
   else
     ReleaseShadowMaps();
 
-  for (int i = 0; i < 20; ++i) {
-    glActiveTexture(GL_TEXTURE0 + i);
-    glBindTexture(GL_TEXTURE_2D, 0);
-  }
-
   if (deferredShading)
     RenderInternalDeferred(*m_pScene.get(), m_pScene->mRootNode, cam,
                            nullShader, "");
@@ -1117,8 +1111,8 @@ void MyDrawController::RenderSkyBox(const Camera& cam) {
   skyboxShader->use();
   glBindVertexArray(m_resources.cubeVAOID);
 
-  glActiveTexture(GL_TEXTURE0 + 4);
-  skyboxShader->setInt("skybox", 4);
+  glActiveTexture(GL_TEXTURE0 + ETextureSlot::SkyBox);
+  skyboxShader->setInt("skybox", ETextureSlot::SkyBox);
   glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
   glm::mat4 rot =
