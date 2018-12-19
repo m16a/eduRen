@@ -209,6 +209,8 @@ unsigned int LoadCubemap() {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
   return textureID;
 }
 
@@ -344,15 +346,16 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-  bool res = LoadScene(
-      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
-      "untitled.blend");
+  // bool res = LoadScene(
+  //   "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
+  //  "untitled.blend");
+
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 
-  // bool res = LoadScene(
-  //    "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
-  //    "sponza.blend");
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
+      "sponza.blend");
 
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
