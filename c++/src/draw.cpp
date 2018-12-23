@@ -346,16 +346,20 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-  // bool res = LoadScene(
-  //   "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
-  //  "untitled.blend");
+#if 1
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
+      "untitled.blend");
+#endif
 
-  // bool res =
-  // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+// bool res =
+// LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "sponza.blend");
+#endif
 
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
@@ -735,6 +739,8 @@ void MyDrawController::BuildShadowMaps() {
       glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
                              shadowMap.textureId, 0);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
       glDrawBuffer(GL_NONE);
       glReadBuffer(GL_NONE);
 
@@ -793,6 +799,8 @@ void MyDrawController::BuildShadowMaps() {
       glBindFramebuffer(GL_FRAMEBUFFER, depthCubemapFBO);
       glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                            shadowMap.textureId, 0);
+
+      glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
       glDrawBuffer(GL_NONE);
       glReadBuffer(GL_NONE);
 
@@ -1201,6 +1209,7 @@ static void DrawRect2d(float x, float y, float w, float h,
   glBindVertexArray(quadVAO);
   glDrawArrays(GL_TRIANGLES, 0, sizeof(quadVertices));
 
+  glBindTexture(GL_TEXTURE_2D, 0);
   glDeleteBuffers(1, &quadVBO);
   glDeleteVertexArrays(1, &quadVAO);
 }
@@ -1270,5 +1279,6 @@ void MyDrawController::DebugCubeShadowMap() {
   GLint size = 0;
   glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
   glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glDepthFunc(GL_LESS);
 }

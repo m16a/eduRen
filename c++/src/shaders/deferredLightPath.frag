@@ -69,32 +69,35 @@ subroutine (shadowMap) float globalShadowMap(vec3 fragPos, vec3 normal, vec4 fra
 
 	float shadow = 0.0;
 
-	if (projCoords.z <= 1.0)
+	if (nDirLights > 0)
 	{
-		// transform to [0,1] range
-		projCoords = projCoords * 0.5 + 0.5;
-		// get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-		//float closestDepth = texture(shadowMapTexture, projCoords.xy).r; 
-		
-		// get depth of current fragment from light's perspective
-		float currentDepth = projCoords.z;
-		
-		float bias = 0.0005;	
-		//float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);  
-		// check whether current frag pos is in shadow
-		//
-		//float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-
-		vec2 texelSize = 1.0 / textureSize(light.shadowMapTexture, 0);
-		for(int x = -1; x <= 1; ++x)
+		if (projCoords.z <= 1.0)
 		{
-				for(int y = -1; y <= 1; ++y)
-				{
-						float pcfDepth = texture(light.shadowMapTexture, projCoords.xy + vec2(x, y) * texelSize).r; 
-						shadow += currentDepth - bias > pcfDepth ? 0.5 : 0.0;        
-				}    
+			// transform to [0,1] range
+			projCoords = projCoords * 0.5 + 0.5;
+			// get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+			//float closestDepth = texture(shadowMapTexture, projCoords.xy).r; 
+			
+			// get depth of current fragment from light's perspective
+			float currentDepth = projCoords.z;
+			
+			float bias = 0.0005;	
+			//float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);  
+			// check whether current frag pos is in shadow
+			//
+			//float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+
+			vec2 texelSize = 1.0 / textureSize(light.shadowMapTexture, 0);
+			for(int x = -1; x <= 1; ++x)
+			{
+					for(int y = -1; y <= 1; ++y)
+					{
+							float pcfDepth = texture(light.shadowMapTexture, projCoords.xy + vec2(x, y) * texelSize).r; 
+							shadow += currentDepth - bias > pcfDepth ? 0.5 : 0.0;        
+					}    
+			}
+			shadow /= 9.0;
 		}
-		shadow /= 9.0;
 	}
 
 	//calculate omnidirectional shadows
