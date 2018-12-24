@@ -207,33 +207,35 @@ void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
   }
 
   ImGui::Checkbox("debugShadowMaps", &MyDrawController::debugShadowMaps);
-  ImGui::SameLine(150);
-  ImGui::PushItemWidth(150);
 
   static int item = -1;
 
-  const char** arr = nullptr;
-  if (!MyDrawController::pointLightNames.empty()) {
-    arr = new const char*[MyDrawController::pointLightNames
-                              .size()];  // TODO::ugly
-    for (int i = 0; i < MyDrawController::pointLightNames.size(); ++i) {
-      arr[i] = MyDrawController::pointLightNames[i].c_str();
+  if (MyDrawController::pointLightNames.size()) {
+    ImGui::SameLine(150);
+    ImGui::PushItemWidth(150);
+    const char** arr = nullptr;
+    if (!MyDrawController::pointLightNames.empty()) {
+      arr = new const char*[MyDrawController::pointLightNames
+                                .size()];  // TODO::ugly
+      for (int i = 0; i < MyDrawController::pointLightNames.size(); ++i) {
+        arr[i] = MyDrawController::pointLightNames[i].c_str();
+      }
+
+      ImGui::Combo("point light", &item, arr,
+                   MyDrawController::pointLightNames.size());
+
+      if (item > -1) MyDrawController::debugOnmiShadowLightName = arr[item];
     }
 
-    ImGui::Combo("point light", &item, arr,
-                 MyDrawController::pointLightNames.size());
+    if (arr) delete[] arr;
 
-    if (item > -1) MyDrawController::debugOnmiShadowLightName = arr[item];
+    ImGui::PopItemWidth();
   }
-
-  if (arr) delete[] arr;
 
   if (!MyDrawController::drawShadows) {
     ImGui::PopItemFlag();
     ImGui::PopStyleVar();
   }
-
-  ImGui::PopItemWidth();
 
   {
     ImGui::Checkbox("bump maping", &MyDrawController::bumpMapping);

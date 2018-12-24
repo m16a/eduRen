@@ -357,4 +357,5 @@ void main()
 
 	//fColor = vec4(baseColor.diffuse);
 	//fColor = vec4(norm, 1.0);
+	//fColor = vec4(vec2(TexCoords), 0, 1.0);
 }

@@ -346,7 +346,7 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-#if 1
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
@@ -359,6 +359,12 @@ void MyDrawController::Load() {
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "sponza.blend");
+#endif
+
+#if 1
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/paralax/"
+      "untitled.blend");
 #endif
 
   // bool res =
