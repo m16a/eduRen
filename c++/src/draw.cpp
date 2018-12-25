@@ -165,6 +165,7 @@ std::string GetUniformTextureName(aiTextureType type) {
       return "inTexture.spec";
       break;
     case aiTextureType_HEIGHT:
+    case aiTextureType_NORMALS:
       return "inTexture.norm";
       break;
     case aiTextureType_AMBIENT:
@@ -320,8 +321,12 @@ void MyDrawController::LoadMeshesData() {
 
 bool MyDrawController::LoadScene(const std::string& path) {
   bool res = false;
-  if (const aiScene* p = aiImportFile(
-          path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality)) {
+  if (const aiScene* p =
+          aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality
+#if 0
+                                         | aiProcess_FlipWindingOrder
+#endif
+                       )) {
     if (p->mNumTextures) {
       std::cout << "[ERROR][TODO] embeded textures are not handled"
                 << std::endl;
@@ -346,7 +351,7 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-#if 0
+#if 1
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
@@ -361,9 +366,15 @@ void MyDrawController::Load() {
       "sponza.blend");
 #endif
 
-#if 1
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/paralax/"
+      "untitled.blend");
+#endif
+
+#if 0
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/earth/"
       "untitled.blend");
 #endif
 
@@ -407,8 +418,9 @@ void MyDrawController::Load() {
   m_resources.skyboxTextID = LoadCubemap();
 }
 
-void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
+bool MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
                                    int indx) {
+  bool res = false;
   // lazy loading textures
   unsigned int texCnt = mat.GetTextureCount(type);
   // assert(texCnt <= 1 && "multiple textures for one type is not supported");
@@ -429,6 +441,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
       glActiveTexture(GL_TEXTURE0 + indx);
       currShader->setInt(GetUniformTextureName(type).c_str(), indx);
       glBindTexture(GL_TEXTURE_2D, id);
+      res = true;
     } else {
       std::cout << "Texture reading fail\n";
     }
@@ -437,6 +450,7 @@ void MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
     currShader->setInt(GetUniformTextureName(type).c_str(), indx);
     glBindTexture(GL_TEXTURE_2D, 0);
   }
+  return res;
 }
 
 void MyDrawController::SetupMaterial(
@@ -462,7 +476,11 @@ void MyDrawController::SetupMaterial(
       BindTexture(material, aiTextureType_DIFFUSE, ETextureSlot::Diffuse);
       BindTexture(material, aiTextureType_SPECULAR, ETextureSlot::Specular);
       BindTexture(material, aiTextureType_AMBIENT, ETextureSlot::Reflection);
-      BindTexture(material, aiTextureType_HEIGHT, ETextureSlot::Normals);
+
+      // normal map can be placed under different names. can't figure out
+      if (!BindTexture(material, aiTextureType_NORMALS, ETextureSlot::Normals))
+        BindTexture(material, aiTextureType_HEIGHT, ETextureSlot::Normals);
+
     } else {
       data.push_back(std::pair<std::string, std::string>("baseColorSelection",
                                                          "plainColor"));
@@ -503,7 +521,8 @@ void MyDrawController::SetupMaterial(
       data.push_back(std::pair<std::string, std::string>("shadowMapSelection",
                                                          "emptyShadowMap"));
 
-    if (bumpMapping && material.GetTextureCount(aiTextureType_HEIGHT)) {
+    if (bumpMapping && (material.GetTextureCount(aiTextureType_HEIGHT) ||
+                        material.GetTextureCount(aiTextureType_NORMALS))) {
       if (bumpMappingType == Normal) {
         data.push_back(std::pair<std::string, std::string>("getNormalSelection",
                                                            "getNormalBumped"));
