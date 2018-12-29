@@ -47,10 +47,6 @@ static void error_callback(int error, const char* description) {
   fprintf(stderr, "Error %d: %s\n", error, description);
 }
 
-ImVec4 sClearColor = ImVec4(0.0f / 255.0f, 0.0f / 255.0f, 0.0f / 255.0f, 1.00f);
-// ImVec4 sClearColor = ImVec4(115.0f/255.0f, 140.0f/255.0f, 153.0f/255.0f,
-// 1.00f);
-//
 void checkKeys(MyDrawController& mdc, ImGuiIO& io) {
   const float dt = ImGui::GetIO().DeltaTime;
   const bool haste = io.KeyShift;
@@ -351,7 +347,9 @@ inline void Render(MyDrawController& mdc) {
   glBindFramebuffer(GL_FRAMEBUFFER, offscreen.FB);
   glViewport(0, 0, sWinWidth, sWinHeight);
 
-  glClearColor(sClearColor.x, sClearColor.y, sClearColor.z, sClearColor.w);
+  auto& c = MyDrawController::clearColor;
+
+  glClearColor(c[0], c[1], c[2], c[3]);
   glEnable(GL_DEPTH_TEST);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

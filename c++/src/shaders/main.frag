@@ -90,6 +90,35 @@ subroutine (getNormal) vec3 getNormalBumped(vec2 uv)
 	return n;
 }
 
+subroutine (getNormal) vec3 getNormalFromHeight(vec2 uv)
+{
+	const vec2 size = vec2(1.0,0.0);
+	const ivec3 off = ivec3(-1,0,1);
+
+	vec4 wave = texture(inTexture.norm, uv);
+	float s11 = wave.x;
+#if 0
+	float s01 = textureOffset(inTexture.norm, uv, off.xy).x;
+	float s21 = textureOffset(inTexture.norm, uv, off.zy).x;
+	float s10 = textureOffset(inTexture.norm, uv, off.yx).x;
+	float s12 = textureOffset(inTexture.norm, uv, off.yz).x;
+#else
+	float s01 = 1-textureOffset(inTexture.norm, uv, off.xy).x;
+	float s21 = 1-textureOffset(inTexture.norm, uv, off.zy).x;
+	float s10 = 1-textureOffset(inTexture.norm, uv, off.yx).x;
+	float s12 = 1-textureOffset(inTexture.norm, uv, off.yz).x;
+#endif
+
+	float scale = 10;
+	vec3 va = scale * normalize(vec3(size.xy,scale * (-s21+s01)));
+	vec3 vb = scale * normalize(vec3(size.yx,scale * (s12-s10)));
+	//vec4 bump = vec4( cross(va,vb), s11 );	
+	vec3 n = normalize(cross(va, vb));
+	n = normalize(TBN * n);
+
+	return n;
+}
+
 subroutine uniform getNormal getNormalSelection;
 // -----------------------------------------------------------
 /*
@@ -120,7 +149,8 @@ subroutine uniform getHeight getHeightSelection;
 vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
 { 
     float height =  texture(inTexture.norm, texCoords).r;    
-    vec2 p = viewDir.xy / viewDir.z * (height * 0.1);
+		height = 1.0 - height;
+    vec2 p = viewDir.xy / viewDir.z * (height * 0.001);
     return texCoords - p;    
 } 
 
@@ -168,7 +198,7 @@ subroutine (baseColor) Color textHeightColor(vec2 uv)
 	Color c;
 	c.diffuse  = getHeightBumped(inTexture.diff, uv);
 	c.ambient = c.diffuse;
-	c.diffuse  = getHeightBumped(inTexture.spec, uv);
+	c.specular = getHeightBumped(inTexture.spec, uv);
 	c.shininess = 16;
 	return c;
 }

@@ -36,6 +36,9 @@ float MyDrawController::HDR_exposure = 0.0f;
 bool MyDrawController::deferredShading = false;
 bool MyDrawController::debugGBuffer = false;
 
+glm::vec4 MyDrawController::clearColor(57.f / 255.0f, 57.f / 255.0f,
+                                       57.f / 255.0f, 1.00f);
+
 enum Attrib_IDs {
   vPosition = 0,
   vNormals = 1,
@@ -126,6 +129,7 @@ unsigned int TextureFromFile(const char* path, const std::string& directory) {
                     GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    glBindTexture(GL_TEXTURE_2D, 0);
     stbi_image_free(data);
   } else {
     std::cout << "Texture failed to load at path: " << path << std::endl;
@@ -328,8 +332,9 @@ bool MyDrawController::LoadScene(const std::string& path) {
 #endif
                        )) {
     if (p->mNumTextures) {
-      std::cout << "[ERROR][TODO] embeded textures are not handled"
-                << std::endl;
+      std::cout
+          << "[ERROR][TODO] embeded textures are not handled. Textures count: "
+          << p->mNumTextures << std::endl;
     } else {
       m_pScene.reset(p);
       res = true;
@@ -351,7 +356,7 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-#if 1
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
@@ -360,7 +365,7 @@ void MyDrawController::Load() {
 // bool res =
 // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 
-#if 0
+#if 1
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "sponza.blend");
@@ -369,7 +374,7 @@ void MyDrawController::Load() {
 #if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/paralax/"
-      "untitled.blend");
+      "sponzacry.blend");
 #endif
 
 #if 0
@@ -378,12 +383,20 @@ void MyDrawController::Load() {
       "untitled.blend");
 #endif
 
-  // bool res =
-  // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
-  // bool res =
-  // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
-  // bool res =
-  // LoadScene("/home/m16a/Documents/github/eduRen/models/sponza/sponza.obj");
+#if 0
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/box/"
+      "untitled.blend");
+#endif
+
+// bool res =
+// LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
+// bool res =
+// LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
+#if 0
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.obj");
+#endif
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.obj");
   // bool res =
@@ -531,8 +544,9 @@ void MyDrawController::SetupMaterial(
       } else if (bumpMappingType == Height) {
         // data.push_back(std::pair<std::string,
         // std::string>("getHeightlSelection", "getHeightBumped"));
-        data.push_back(std::pair<std::string, std::string>("getNormalSelection",
-                                                           "getNormalSimple"));
+
+        data.push_back(std::pair<std::string, std::string>(
+            "getNormalSelection", "getNormalFromHeight"));
 
         data.push_back(std::pair<std::string, std::string>("baseColorSelection",
                                                            "textHeightColor"));
@@ -982,7 +996,7 @@ void MyDrawController::RenderInternalDeferred(
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
   glBindFramebuffer(GL_FRAMEBUFFER, m_resources.GBuffer.FBO);
 
-  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_DEPTH_TEST);
 

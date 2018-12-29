@@ -86,6 +86,8 @@ class MyDrawController {
   static bool deferredShading;
   static bool debugGBuffer;
 
+  static glm::vec4 clearColor;
+
   void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color,
                   bool doGammaCorrection);
   void DrawRect2d(float x, float y, float w, float h, GLuint textureId,
