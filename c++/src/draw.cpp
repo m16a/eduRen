@@ -356,7 +356,7 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-#if 0
+#if 1
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
@@ -365,7 +365,7 @@ void MyDrawController::Load() {
 // bool res =
 // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
 
-#if 1
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "sponza.blend");
@@ -925,7 +925,7 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
     GLuint arr[] = {gBuffer.pos, gBuffer.normal, gBuffer.albedoSpec};
     glDeleteTextures(3, arr);
 
-    glDeleteRenderbuffers(1, &gBuffer.depthRBO);
+    glDeleteRenderbuffers(1, &gBuffer.depth);
   }
 
   GLint oldFBO = 0;
@@ -963,7 +963,6 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D,
                          gBuffer.albedoSpec, 0);
-  glBindTexture(GL_TEXTURE_2D, 0);
 
   // - tell OpenGL which color attachments we'll use (of this framebuffer) for
   // rendering
@@ -971,13 +970,17 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
                                  GL_COLOR_ATTACHMENT2};
   glDrawBuffers(3, attachments);
 
-  // create depth RBO
-  glGenRenderbuffers(1, &gBuffer.depthRBO);
-  glBindRenderbuffer(GL_RENDERBUFFER, gBuffer.depthRBO);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                            GL_RENDERBUFFER, gBuffer.depthRBO);
+  // create depth texture
+  glGenTextures(1, &gBuffer.depth);
+  glBindTexture(GL_TEXTURE_2D, gBuffer.depth);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, w, h, 0,
+               GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                         gBuffer.depth, 0);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     assert(!"Framebuffer not complete!");
@@ -996,7 +999,7 @@ void MyDrawController::RenderInternalDeferred(
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
   glBindFramebuffer(GL_FRAMEBUFFER, m_resources.GBuffer.FBO);
 
-  glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_DEPTH_TEST);
 
@@ -1007,6 +1010,13 @@ void MyDrawController::RenderInternalDeferred(
   RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam,
                         deferredGeomPathShader, "");
 
+  glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+
+  // copy depth buffer to default FBO
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, m_resources.GBuffer.FBO);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldFBO);
+  glBlitFramebuffer(0, 0, (int)cam.Width, (int)cam.Height, 0, 0, (int)cam.Width,
+                    (int)cam.Height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
 
   // light path
@@ -1062,19 +1072,20 @@ void MyDrawController::RenderInternalDeferred(
     deferredLightPathShader->setInt("gAlbedoSpec", 3);
     glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.albedoSpec);
 
+    glActiveTexture(GL_TEXTURE0 + 4);
+    deferredLightPathShader->setInt("gDepth", 4);
+    glBindTexture(GL_TEXTURE_2D, m_resources.GBuffer.depth);
+
     glBindVertexArray(quadVAO);
+
+    glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+    glDisable(GL_DEPTH_TEST);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(quadVertices));
+    glEnable(GL_DEPTH_TEST);
 
     glDeleteBuffers(1, &quadVBO);
     glDeleteVertexArrays(1, &quadVAO);
   }
-
-  // copy depth buffer to default FBO
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, m_resources.GBuffer.FBO);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldFBO);
-  glBlitFramebuffer(0, 0, (int)cam.Width, (int)cam.Height, 0, 0, (int)cam.Width,
-                    (int)cam.Height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-  glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
 
   if (debugGBuffer) {
     glDisable(GL_DEPTH_TEST);

@@ -42,6 +42,7 @@ uniform vec3 camPos;
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec;
+uniform sampler2D gDepth;
 
 uniform mat4 lightSpaceMatrix;
 
@@ -128,6 +129,12 @@ subroutine uniform shadowMap shadowMapSelection;
 // -----------------------------------------------------------
 void main()
 {    
+	float d = texture(gDepth, TexCoords).r;
+
+	//omit background lightning processing
+	if (d == 1)
+		discard;
+
 	Color res;
 	res.ambient = vec4(0.0);
 	res.diffuse = vec4(0.0);
@@ -177,4 +184,6 @@ void main()
 	vec4 dirFragPosLightSpace = lightSpaceMatrix * vec4(FragPos, 1.0);
 	float shadow = shadowMapSelection(FragPos, Normal, dirFragPosLightSpace, dirLights[0]);
 	fColor = vec4(vec3(res.ambient + (res.diffuse + res.specular) * (1.0 - shadow)), 1.0f);
+	
+	//fColor = vec4(vec3(c), 1.0);
 }

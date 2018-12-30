@@ -22,7 +22,7 @@ struct SGBuffer {
   GLuint pos{0};
   GLuint normal{0};
   GLuint albedoSpec{0};
-  GLuint depthRBO{0};
+  GLuint depth{0};
 };
 
 struct SResourceHandlers {
