@@ -25,18 +25,20 @@ public:
         glAttachShader(ID, vertex);
         glAttachShader(ID, fragment);
 
-				if (geometryPath)
-				{
-					geometry = loadShader(GL_GEOMETRY_SHADER, geometryPath);
-					glAttachShader(ID, geometry);
-				}
+        if (geometryPath)
+        {
+            geometry = loadShader(GL_GEOMETRY_SHADER, geometryPath);
+            glAttachShader(ID, geometry);
+        }
 
         glLinkProgram(ID);
         checkCompileErrors(ID, "PROGRAM");
         // delete the shaders as they're linked into our program now and no longer necessery
         glDeleteShader(vertex);
         glDeleteShader(fragment);
-        glDeleteShader(geometry);
+
+        if (geometryPath)
+            glDeleteShader(geometry);
     }
 	
     // activate the shader

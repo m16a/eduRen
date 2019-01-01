@@ -395,7 +395,7 @@ void MyDrawController::Load() {
 // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 #if 0
   bool res = LoadScene(
-      "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.obj");
+      "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
 #endif
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.obj");
@@ -621,7 +621,7 @@ void MyDrawController::SetupLights(const std::string& onlyLight) {
 
     assert(light.mType == aiLightSource_POINT ||
            light.mType == aiLightSource_DIRECTIONAL);
-    aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
+    aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName.data);
     assert(pLightNode);
 
     if (onlyLight != "" && onlyLight != light.mName.C_Str()) continue;
@@ -742,7 +742,7 @@ void MyDrawController::BuildShadowMaps() {
     assert(light.mType == aiLightSource_POINT ||
            light.mType == aiLightSource_DIRECTIONAL);
 
-    aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
+    aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName.data);
     assert(pLightNode);
 
     aiMatrix4x4 m = pLightNode->mTransformation;
@@ -1145,7 +1145,7 @@ void MyDrawController::RenderLightModels(const Camera& cam) {
   for (int i = 0; i < m_pScene->mNumLights; ++i) {
     const aiLight& light = *m_pScene->mLights[i];
 
-    aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName);
+    aiNode* pLightNode = m_pScene->mRootNode->FindNode(light.mName.data);
     assert(pLightNode);
 
     aiMatrix4x4 m = pLightNode->mTransformation;

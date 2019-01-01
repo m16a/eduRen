@@ -37,3 +37,7 @@ Cargo.lock
 /models/
 
 **/*.swp
+
+# CLion
+.idea
+*.cbp

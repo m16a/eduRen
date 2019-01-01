@@ -67,6 +67,108 @@ static void windowSizeChanged(GLFWwindow* window, int width, int height) {
   sNeedUpdateOffscreenIds = true;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+
+void MessageCallback(unsigned int source, unsigned int type, unsigned int id,
+                     unsigned int severity, int length, const char* message,
+                     void* userParam) {
+  char* _source;
+  char* _type;
+  char* _severity;
+
+  switch (source) {
+    case GL_DEBUG_SOURCE_API:
+      _source = "API";
+      break;
+
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+      _source = "WINDOW SYSTEM";
+      break;
+
+    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+      _source = "SHADER COMPILER";
+      break;
+
+    case GL_DEBUG_SOURCE_THIRD_PARTY:
+      _source = "THIRD PARTY";
+      break;
+
+    case GL_DEBUG_SOURCE_APPLICATION:
+      _source = "APPLICATION";
+      break;
+
+    case GL_DEBUG_SOURCE_OTHER:
+      _source = "UNKNOWN";
+      break;
+
+    default:
+      _source = "UNKNOWN";
+      break;
+  }
+
+  switch (type) {
+    case GL_DEBUG_TYPE_ERROR:
+      _type = "ERROR";
+      break;
+
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+      _type = "DEPRECATED BEHAVIOR";
+      break;
+
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+      _type = "UDEFINED BEHAVIOR";
+      break;
+
+    case GL_DEBUG_TYPE_PORTABILITY:
+      _type = "PORTABILITY";
+      break;
+
+    case GL_DEBUG_TYPE_PERFORMANCE:
+      _type = "PERFORMANCE";
+      break;
+
+    case GL_DEBUG_TYPE_OTHER:
+      _type = "OTHER";
+      break;
+
+    case GL_DEBUG_TYPE_MARKER:
+      _type = "MARKER";
+      break;
+
+    default:
+      _type = "UNKNOWN";
+      break;
+  }
+
+  switch (severity) {
+    case GL_DEBUG_SEVERITY_HIGH:
+      _severity = "HIGH";
+      break;
+
+    case GL_DEBUG_SEVERITY_MEDIUM:
+      _severity = "MEDIUM";
+      break;
+
+    case GL_DEBUG_SEVERITY_LOW:
+      _severity = "LOW";
+      break;
+
+    case GL_DEBUG_SEVERITY_NOTIFICATION:
+      _severity = "NOTIFICATION";
+      return;
+      break;
+
+    default:
+      _severity = "UNKNOWN";
+      break;
+  }
+
+  fprintf(stderr, "%d: %s of %s severity, raised from %s: %s\n", id, _type,
+          _severity, _source, message);
+}
+#pragma GCC diagnostic pop
+
 static void UpdateOffscreenRenderIDs(SOffscreenRenderIDs& offscreen, int w,
                                      int h) {
   if (!sNeedUpdateOffscreenIds) return;
@@ -397,6 +499,10 @@ int main(int, char**) {
   glfwSwapInterval(1);  // Enable vsync
   glfwSetWindowSizeCallback(window, windowSizeChanged);
   gl3wInit();
+
+  glEnable(GL_DEBUG_OUTPUT);
+  glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+  glDebugMessageCallback(MessageCallback, 0);
 
   MyDrawController mdc;
 
