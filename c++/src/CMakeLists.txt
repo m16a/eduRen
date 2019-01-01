@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.6.3)
 
 set (CMAKE_CXX_STANDARD 14)
-#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 set(SOURCES 
 	main.cpp
@@ -24,6 +24,7 @@ include_directories(
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/libs/gl3w/
 	${CMAKE_SOURCE_DIR}/3rdparty/lernOpenGL/include/
 	${CMAKE_SOURCE_DIR}/3rdparty/stb_image/include/
+	${CMAKE_SOURCE_DIR}/3rdparty/assimp/include/
 	)
 
 find_package(PkgConfig REQUIRED)
@@ -32,7 +33,11 @@ target_include_directories(eduRen PUBLIC ${GLFW3_INCLUDE_DIRS})
 
 find_package(OpenGL)
 
-target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} dl assimp)
+
+find_library(ASSIMP_LIB NAMES assimp libassimp  PATHS ${CMAKE_SOURCE_DIR}/3rdparty/assimp/lib/ NO_DEFAULT_PATH)
+#message("assimp lib path" ${ASSIMP_LIB} "\n")
+
+target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} ${ASSIMP_LIB} dl)
 
 
 #formating
