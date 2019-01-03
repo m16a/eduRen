@@ -504,14 +504,17 @@ int main(int, char**) {
   glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
   glDebugMessageCallback(MessageCallback, 0);
 
-  MyDrawController mdc;
+  MyDrawController* mdc = new MyDrawController();
 
   // Setup ImGui binding
   ImGui_ImplGlfwGL3_Init(window, true);
   ImGuiIO& io = ImGui::GetIO();
-  mdc.Load();
+  mdc->Load();
 
   aiLogStream stream;
+  stream = aiGetPredefinedLogStream(aiDefaultLogStream_STDOUT, nullptr);
+  aiAttachLogStream(&stream);
+
   stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE, "assimp_log.txt");
   aiAttachLogStream(&stream);
 
@@ -524,11 +527,11 @@ int main(int, char**) {
 
     glfwPollEvents();
     ImGui_ImplGlfwGL3_NewFrame();
-    checkKeys(mdc, io);
+    checkKeys(*mdc, io);
 
-    DrawUI(mdc, fpss);
+    DrawUI(*mdc, fpss);
 
-    Render(mdc);
+    Render(*mdc);
 
     ImGui::Render();
     glfwSwapBuffers(window);
@@ -543,11 +546,12 @@ int main(int, char**) {
     ClampFPS(timeSpan.count());
   }
 
+  delete mdc;
+
   // Cleanup
   ImGui_ImplGlfwGL3_Shutdown();
   glfwTerminate();
 
   aiDetachAllLogStreams();
-
   return 0;
 }

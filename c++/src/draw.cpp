@@ -331,12 +331,17 @@ bool MyDrawController::LoadScene(const std::string& path) {
                                          | aiProcess_FlipWindingOrder
 #endif
                        )) {
-    if (p->mNumTextures) {
+    const unsigned int meshN = p->mNumMeshes;
+    if (meshN > kMaxMeshesCount) {
+      std::cout << "[ERROR] Supported meshes overflow. " << meshN << "/"
+                << kMaxMeshesCount << std::endl;
+      return res;
+    } else if (p->mNumTextures) {
       std::cout
           << "[ERROR][TODO] embeded textures are not handled. Textures count: "
           << p->mNumTextures << std::endl;
     } else {
-      m_pScene.reset(p);
+      m_pScene = p;
       res = true;
     }
   } else
@@ -356,7 +361,7 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-#if 1
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
@@ -393,7 +398,7 @@ void MyDrawController::Load() {
 // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
 // bool res =
 // LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
-#if 0
+#if 1
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
 #endif
@@ -798,8 +803,8 @@ void MyDrawController::BuildShadowMaps() {
       lightCam.IsPerspective = false;
 
       glCullFace(GL_FRONT);
-      RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, lightCam,
-                      shadowMapShader, light.mName.C_Str());
+      RecursiveRender(*m_pScene, m_pScene->mRootNode, lightCam, shadowMapShader,
+                      light.mName.C_Str());
       glCullFace(GL_BACK);
 
       glDeleteFramebuffers(1, &depthMapFBO);
@@ -880,7 +885,7 @@ void MyDrawController::BuildShadowMaps() {
       glClear(GL_DEPTH_BUFFER_BIT);
 
       Camera emptyCam;
-      RecursiveRender(*m_pScene.get(), m_pScene->mRootNode, emptyCam,
+      RecursiveRender(*m_pScene, m_pScene->mRootNode, emptyCam,
                       shadowCubeMapShader, light.mName.C_Str());
 
       glDeleteFramebuffers(1, &depthCubemapFBO);
@@ -1007,7 +1012,7 @@ void MyDrawController::RenderInternalDeferred(
   glCullFace(GL_BACK);
 
   // geometry path
-  RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam,
+  RenderInternalForward(*m_pScene, m_pScene->mRootNode, cam,
                         deferredGeomPathShader, "");
 
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
@@ -1116,15 +1121,13 @@ void MyDrawController::Render(const Camera& cam) {
     ReleaseShadowMaps();
 
   if (deferredShading)
-    RenderInternalDeferred(*m_pScene.get(), m_pScene->mRootNode, cam,
-                           nullShader, "");
+    RenderInternalDeferred(*m_pScene, m_pScene->mRootNode, cam, nullShader, "");
   else
-    RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam, nullShader,
-                          "");
+    RenderInternalForward(*m_pScene, m_pScene->mRootNode, cam, nullShader, "");
 
   if (drawNormals)
-    RenderInternalForward(*m_pScene.get(), m_pScene->mRootNode, cam,
-                          normalShader, "");
+    RenderInternalForward(*m_pScene, m_pScene->mRootNode, cam, normalShader,
+                          "");
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 

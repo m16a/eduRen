@@ -15,7 +15,7 @@
 #include <string>
 
 class CShader;
-constexpr const int kMaxMeshesCount = 100;
+constexpr const int kMaxMeshesCount = 400;
 
 struct SGBuffer {
   GLuint FBO{0};
@@ -60,7 +60,7 @@ class MyDrawController {
 
   Camera& GetCam() { return m_cam; }
   CInputHandler& GetInputHandler() { return m_inputHandler; }
-  const aiScene* GetScene() const { return m_pScene.get(); }
+  const aiScene* GetScene() const { return m_pScene; }
 
   static bool clamp60FPS;
   static bool isWireMode;
@@ -141,7 +141,7 @@ class MyDrawController {
   CInputHandler m_inputHandler;
   SResourceHandlers m_resources;
 
-  std::unique_ptr<const aiScene> m_pScene;
+  const aiScene* m_pScene;
   aiVector3D m_scene_min, m_scene_max, m_scene_center;
   std::string m_dirPath;
 };
