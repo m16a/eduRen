@@ -13,6 +13,7 @@ Sample_SimpleOpenGL.c.gz
 assimp_headers
 assimp_log.txt
 libassimp-doc
+**/assimp/lib/
 
 
 dna.txt
