@@ -109,7 +109,7 @@ subroutine (getNormal) vec3 getNormalFromHeight(vec2 uv)
 	float s12 = 1-textureOffset(inTexture.norm, uv, off.yz).x;
 #endif
 
-	float scale = 10;
+	float scale = 0.3;
 	vec3 va = scale * normalize(vec3(size.xy,scale * (-s21+s01)));
 	vec3 vb = scale * normalize(vec3(size.yx,scale * (s12-s10)));
 	//vec4 bump = vec4( cross(va,vb), s11 );	
