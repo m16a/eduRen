@@ -24,7 +24,7 @@ include_directories(
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/libs/gl3w/
 	${CMAKE_SOURCE_DIR}/3rdparty/lernOpenGL/include/
 	${CMAKE_SOURCE_DIR}/3rdparty/stb_image/include/
-	${CMAKE_SOURCE_DIR}/3rdparty/assimp/include/
+	#${CMAKE_SOURCE_DIR}/3rdparty/assimp/include/
 	)
 
 find_package(PkgConfig REQUIRED)
@@ -34,10 +34,12 @@ target_include_directories(eduRen PUBLIC ${GLFW3_INCLUDE_DIRS})
 find_package(OpenGL)
 
 
-find_library(ASSIMP_LIB NAMES assimp libassimp  PATHS ${CMAKE_SOURCE_DIR}/3rdparty/assimp/lib/ NO_DEFAULT_PATH)
+# add self compiled assimp
+#find_library(ASSIMP_LIB NAMES assimp libassimp  PATHS ${CMAKE_SOURCE_DIR}/3rdparty/assimp/lib/ NO_DEFAULT_PATH)
 #message("assimp lib path" ${ASSIMP_LIB} "\n")
+#target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} ${ASSIMP_LIB} dl)
 
-target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} ${ASSIMP_LIB} dl)
+target_link_libraries(eduRen ${GLFW3_LIBRARIES} ${OPENGL_LIBRARIES} assimp dl)
 
 
 #formating
