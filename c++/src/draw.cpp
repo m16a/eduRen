@@ -71,8 +71,9 @@ enum ETextureSlot {
   Normals,
   SkyBox,
   DirShadowMap,
-  OmniShadowMapStart = 7,
-  OmniShadowMapEnd = 16
+  Opacity,
+  OmniShadowMapStart = 10,
+  OmniShadowMapEnd = 19
 };
 
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from) {
@@ -111,8 +112,9 @@ unsigned int TextureFromFile(const char* path, const std::string& directory) {
       stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
   if (data) {
     GLenum format;
-    if (nrComponents == 1)
-      format = GL_RED;
+    if (nrComponents == 1) format = GL_RED;
+    if (nrComponents == 2)
+      format = GL_RG;
     else if (nrComponents == 3)
       format = GL_RGB;
     else if (nrComponents == 4)
@@ -174,6 +176,10 @@ std::string GetUniformTextureName(aiTextureType type) {
       break;
     case aiTextureType_AMBIENT:
       return "inTexture.reflection";
+      break;
+    case aiTextureType_OPACITY:
+    case aiTextureType_UNKNOWN:
+      return "inTexture.opacity";
       break;
   }
 
@@ -394,13 +400,19 @@ void MyDrawController::Load() {
       "untitled.blend");
 #endif
 
-// bool res =
-// LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/cubePointLight.blend");
-// bool res =
-// LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/sponza_cry.blend");
 #if 1
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
+#endif
+
+#if 0
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/alpha_mask/untitled.blend");
+#endif
+
+#if 0
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/alpha_mask/obj/objects.blend");
 #endif
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.obj");
@@ -498,6 +510,16 @@ void MyDrawController::SetupMaterial(
       // normal map can be placed under different names. can't figure out
       if (!BindTexture(material, aiTextureType_NORMALS, ETextureSlot::Normals))
         BindTexture(material, aiTextureType_HEIGHT, ETextureSlot::Normals);
+
+      // if (BindTexture(material, aiTextureType_OPACITY,
+      // ETextureSlot::Opacity)) {
+      if (BindTexture(material, aiTextureType_UNKNOWN, ETextureSlot::Opacity)) {
+        data.push_back(std::pair<std::string, std::string>("opacitySelection",
+                                                           "maskOpacity"));
+      } else {
+        data.push_back(std::pair<std::string, std::string>("opacitySelection",
+                                                           "emptyOpacity"));
+      }
 
     } else {
       data.push_back(std::pair<std::string, std::string>("baseColorSelection",

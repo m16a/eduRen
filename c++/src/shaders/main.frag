@@ -61,6 +61,7 @@ struct Texture
 	sampler2D spec;
 	sampler2D reflection;
 	sampler2D norm;
+	sampler2D opacity;
 };
 
 uniform Texture inTexture;
@@ -303,9 +304,23 @@ subroutine (shadowMap) float globalShadowMap(vec4 fragPosLightSpace, vec3 normal
 }
 
 subroutine uniform shadowMap shadowMapSelection;
+
+// ---------------------- opacity ------------------------
+subroutine float getOpacity(vec2 uv);
+
+subroutine (getOpacity) float emptyOpacity(vec2 uv)
+{
+	return 1.0;
+}
+
+subroutine (getOpacity) float maskOpacity(vec2 uv)
+{
+	return texture(inTexture.opacity, uv).r;
+}
+
+subroutine uniform getOpacity opacitySelection;
+
 // -----------------------------------------------------------
-
-
 
 Color CalcPointLight(Color baseColor, PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
 {
@@ -356,6 +371,11 @@ void main()
 	res.ambient = vec4(0.0);
 	res.diffuse = vec4(0.0);
 	res.specular = vec4(0.0);
+
+	float opacity = opacitySelection(TexCoords);
+
+	if (opacity < 0.03)
+		discard;
 
   vec3 norm = getNormalSelection(TexCoords);
 	vec3 viewDir = normalize(camPos - FragPos);
