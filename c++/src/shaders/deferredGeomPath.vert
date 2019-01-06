@@ -17,6 +17,11 @@ out vec2 TexCoords;
 out vec4 FragPosLightSpace;
 out mat3 TBN;
 
+out vec3 TangentCamPos;
+out vec3 TangentFragPos;
+
+uniform vec3 camPos;
+
 void main()
 {
 	//Normal = normalize(vec3(model * vec4(vNormal, 0.0)));
@@ -28,7 +33,13 @@ void main()
   vec3 T = normalize(vec3(model * vec4(vTangent,   0.0)));
 	vec3 B = normalize(vec3(model * vec4(vBitangent, 0.0)));
 	vec3 N = normalize(vec3(model * vec4(vNormal,    0.0)));
+
+	//from local to world
 	TBN = mat3(T, B, N);
+
+	mat3 TBNinv = transpose(TBN);
+	TangentCamPos = TBNinv * camPos;
+	TangentFragPos = TBNinv * FragPos;
 
 	gl_Position = proj * view * model * vPosition;
 }
