@@ -23,6 +23,7 @@ bool MyDrawController::isMSAA = false;
 bool MyDrawController::isGammaCorrection = false;
 bool MyDrawController::drawGradientReference = false;
 bool MyDrawController::drawShadows = false;
+bool MyDrawController::isSSAO = false;
 
 bool MyDrawController::debugShadowMaps = false;
 std::string MyDrawController::debugOnmiShadowLightName = std::string();
@@ -57,6 +58,7 @@ std::shared_ptr<CShader> shadowCubeMapShader;
 std::shared_ptr<CShader> debugShadowCubeMapShader;
 std::shared_ptr<CShader> deferredGeomPathShader;
 std::shared_ptr<CShader> deferredLightPathShader;
+std::shared_ptr<CShader> ssaoShader;
 std::shared_ptr<CShader> currShader;
 
 std::shared_ptr<CShader> nullShader;
@@ -265,6 +267,11 @@ void MyDrawController::InitLightModel() {
                cubeIndices, GL_STATIC_DRAW);
 }
 
+void MyDrawController::InitFsQuad()
+{
+
+}
+
 void MyDrawController::LoadMeshesData() {
   const unsigned int meshN = GetScene()->mNumMeshes;
 
@@ -444,7 +451,11 @@ void MyDrawController::Load() {
   deferredLightPathShader = std::make_shared<CShader>(
       "shaders/deferredLightPath.vert", "shaders/deferredLightPath.frag");
 
+  ssaoShader = std::make_shared<CShader>(
+      "shaders/ssao.vert", "shaders/ssao.frag");
+
   InitLightModel();
+  InitFsQuad();
   m_resources.skyboxTextID = LoadCubemap();
 }
 
@@ -969,6 +980,9 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
   // NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          gBuffer.pos, 0);
 
@@ -1016,11 +1030,122 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
 }
 
+
+float lerp(float a, float b, float f)
+{
+    return a + f * (b - a);
+}  
+
+void InitSSAO(SSSAO& ssao, const Camera& cam) {
+	
+	if (!ssao.FBO)	
+	{
+		// ssao noize texture
+		{
+			std::uniform_real_distribution<float> randomFloats(
+					0.0, 1.0);  // random floats between 0.0 - 1.0
+			std::default_random_engine generator;
+			std::vector<glm::vec3> noises;
+			for (unsigned int i = 0; i < 16; i++) {
+				glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0,
+												randomFloats(generator) * 2.0 - 1.0, 0.0f);
+				noises.push_back(noise);
+			}
+
+			glGenTextures(1, &ssao.noiseTxt);
+			glBindTexture(GL_TEXTURE_2D, ssao.noiseTxt);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, 4, 4, 0, GL_RGB, GL_FLOAT,
+									 &noises[0]);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		}
+		
+    glGenFramebuffers(1, &ssao.FBO);
+	}
+
+  // ssao fbo
+	if (!ssao.colorTxt)
+  {
+		GLint oldFBO = 0;
+		glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, ssao.FBO);
+
+    glGenTextures(1, &ssao.colorTxt);  // TODO: delete on recreation
+    glBindTexture(GL_TEXTURE_2D, ssao.colorTxt);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (int)cam.Width, (int)cam.Height, 0,
+                 GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           ssao.colorTxt, 0);
+		
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+  }
+
+	//setup kernel
+	if (ssao.kernel.empty())
+	{
+		std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between 0.0 - 1.0
+		std::default_random_engine generator;
+		for (unsigned int i = 0; i < 64; ++i)
+		{
+				glm::vec3 sample(
+						randomFloats(generator) * 2.0 - 1.0, 
+						randomFloats(generator) * 2.0 - 1.0, 
+						randomFloats(generator)
+				);
+				sample  = glm::normalize(sample);
+				sample *= randomFloats(generator);
+				float scale = (float)i / 64.0; 
+				scale = lerp(0.1f, 1.0f, scale * scale);
+				sample *= scale;
+				ssao.kernel.push_back(sample);  
+		}
+	}
+}
+
+void PerformSSAO(const SSSAO& ssao, const SGBuffer& gBuffer, const Camera& cam)
+{
+	ssaoShader->use();
+
+  GLint oldFBO = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, ssao.FBO);
+	glClear(GL_COLOR_BUFFER_BIT);    
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, gBuffer.pos);
+	ssaoShader->setInt("gPosition", 0);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, gBuffer.normal);
+	ssaoShader->setInt("gNormal", 1);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, ssao.noiseTxt);
+	ssaoShader->setInt("noiseTxt", 2);
+
+	for (unsigned int i = 0; i < 64; ++i)
+			ssaoShader->setVec3("samples[" + std::to_string(i) + "]", ssao.kernel[i]);
+
+	ssaoShader->setMat4("projection", cam.GetProjMatrix());
+
+	//RenderQuad();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+}
+
 void MyDrawController::RenderInternalDeferred(
     const aiScene& scene, const aiNode* nd, const Camera& cam,
     std::shared_ptr<CShader>& overrideProgram,
     const std::string& shadowMapForLight) {
   GenGBuffer(m_resources.GBuffer, cam);
+	InitSSAO(m_resources.ssao, cam);
 
   GLint oldFBO = 0;
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);

@@ -22,7 +22,14 @@ struct SGBuffer {
   GLuint pos{0};
   GLuint normal{0};
   GLuint albedoSpec{0};
-  GLuint depth{0};
+  GLuint depth{0};  // redundant in general, pos buffer can be reused
+};
+
+struct SSSAO {
+  GLuint FBO{0};
+  GLuint colorTxt{0};
+  GLuint noiseTxt{0};
+  std::vector<glm::vec3> kernel;
 };
 
 struct SResourceHandlers {
@@ -44,7 +51,12 @@ struct SResourceHandlers {
   GLuint cubeElemID;
   GLuint cubeVAOID;
 
+  // full-screen quad
+  GLuint fsQuadVAOID;
+  GLuint fsQuadVBOID;
+
   SGBuffer GBuffer;
+  SSSAO ssao;
 
   void Release();
 };
@@ -72,6 +84,7 @@ class MyDrawController {
   static bool drawGradientReference;
   static bool isMSAA;
   static bool isGammaCorrection;
+  static bool isSSAO;
 
   static bool drawShadows;
   static bool debugShadowMaps;
@@ -97,6 +110,7 @@ class MyDrawController {
  private:
   bool LoadScene(const std::string& path);
   void InitLightModel();
+  void InitFsQuad();
   void RecursiveRender(const aiScene& scene, const aiNode* nd,
                        const Camera& cam,
                        std::shared_ptr<CShader>& overrideProgram,

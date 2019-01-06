@@ -390,9 +390,12 @@ void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
   if (!MyDrawController::deferredShading) {
     ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    MyDrawController::isSSAO = false;
   }
 
   ImGui::Checkbox("debug GBUffer", &MyDrawController::debugGBuffer);
+  ImGui::Checkbox("SSAO", &MyDrawController::isSSAO);
+
   if (!MyDrawController::deferredShading) {
     ImGui::PopItemFlag();
     ImGui::PopStyleVar();
