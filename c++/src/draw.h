@@ -111,6 +111,7 @@ class MyDrawController {
   bool LoadScene(const std::string& path);
   void InitLightModel();
   void InitFsQuad();
+  void RenderFsQuad();
   void RecursiveRender(const aiScene& scene, const aiNode* nd,
                        const Camera& cam,
                        std::shared_ptr<CShader>& overrideProgram,
