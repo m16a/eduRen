@@ -127,6 +127,8 @@ class MyDrawController {
   void RenderSkyBox(const Camera& cam);
   void RenderLightModels(const Camera& cam);
 
+  void PerformSSAO(const SSSAO& ssao, const SGBuffer& gBuffer,
+                   const Camera& cam);
   // returns true on success
   bool BindTexture(const aiMaterial& mat, aiTextureType type, int indx);
   void SetupLights(const std::string& onlyLight);

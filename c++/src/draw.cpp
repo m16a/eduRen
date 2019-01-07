@@ -1122,8 +1122,8 @@ void InitSSAO(SSSAO& ssao, const Camera& cam) {
   }
 }
 
-void PerformSSAO(const SSSAO& ssao, const SGBuffer& gBuffer,
-                 const Camera& cam) {
+void MyDrawController::PerformSSAO(const SSSAO& ssao, const SGBuffer& gBuffer,
+                                   const Camera& cam) {
   ssaoShader->use();
 
   GLint oldFBO = 0;
@@ -1146,9 +1146,10 @@ void PerformSSAO(const SSSAO& ssao, const SGBuffer& gBuffer,
   for (unsigned int i = 0; i < 64; ++i)
     ssaoShader->setVec3("samples[" + std::to_string(i) + "]", ssao.kernel[i]);
 
-  ssaoShader->setMat4("projection", cam.GetProjMatrix());
+  ssaoShader->setMat4("projMat", cam.GetProjMatrix());
+  ssaoShader->setMat4("vpMat", cam.GetProjMatrix() * cam.GetViewMatrix());
 
-  // RenderQuad();
+  RenderFsQuad();
 
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
 }
@@ -1183,6 +1184,8 @@ void MyDrawController::RenderInternalDeferred(
   glBlitFramebuffer(0, 0, (int)cam.Width, (int)cam.Height, 0, 0, (int)cam.Width,
                     (int)cam.Height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+
+  PerformSSAO(m_resources.ssao, m_resources.GBuffer, cam);
 
   // light path
   deferredLightPathShader->use();
@@ -1232,8 +1235,10 @@ void MyDrawController::RenderInternalDeferred(
                false, false, -1.0f);
     DrawRect2d(cam.Width - 315, 300, 300, 200, m_resources.GBuffer.albedoSpec,
                false, false, -1.0f);
-    DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.GBuffer.albedoSpec,
-               false, true, -1.0f);
+    // DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.GBuffer.albedoSpec,
+    //           false, true, -1.0f);
+    DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.ssao.colorTxt, false,
+               false, -1.0f);
     glEnable(GL_DEPTH_TEST);
   }
 }
