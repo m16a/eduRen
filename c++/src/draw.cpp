@@ -1105,6 +1105,7 @@ void InitSSAO(SSSAO& ssao, const Camera& cam) {
 
   // setup kernel
   if (ssao.kernel.empty()) {
+    std::cout << "Samples:" << std::endl;
     std::uniform_real_distribution<float> randomFloats(
         0.0, 1.0);  // random floats between 0.0 - 1.0
     std::default_random_engine generator;
@@ -1117,6 +1118,9 @@ void InitSSAO(SSSAO& ssao, const Camera& cam) {
       float scale = (float)i / 64.0;
       scale = lerp(0.1f, 1.0f, scale * scale);
       sample *= scale;
+
+      std::cout << "\t" << sample[0] << " " << sample[1] << " " << sample[2]
+                << std::endl;
       ssao.kernel.push_back(sample);
     }
   }
@@ -1135,18 +1139,18 @@ void MyDrawController::PerformSSAO(const SSSAO& ssao, const SGBuffer& gBuffer,
   glBindTexture(GL_TEXTURE_2D, gBuffer.pos);
   ssaoShader->setInt("gPosition", 0);
 
-  glActiveTexture(GL_TEXTURE1);
+  glActiveTexture(GL_TEXTURE0 + 1);
   glBindTexture(GL_TEXTURE_2D, gBuffer.normal);
   ssaoShader->setInt("gNormal", 1);
 
-  glActiveTexture(GL_TEXTURE2);
+  glActiveTexture(GL_TEXTURE0 + 2);
   glBindTexture(GL_TEXTURE_2D, ssao.noiseTxt);
   ssaoShader->setInt("noiseTxt", 2);
 
   for (unsigned int i = 0; i < 64; ++i)
     ssaoShader->setVec3("samples[" + std::to_string(i) + "]", ssao.kernel[i]);
 
-  ssaoShader->setMat4("projMat", cam.GetProjMatrix());
+  ssaoShader->setMat4("viewMat", cam.GetViewMatrix());
   ssaoShader->setMat4("vpMat", cam.GetProjMatrix() * cam.GetViewMatrix());
 
   RenderFsQuad();
