@@ -397,14 +397,28 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
+#if 1
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
+#endif
+
 #if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
 #endif
 
-// bool res =
-// LoadScene("/home/m16a/Documents/github/eduRen/models/my_scenes/nanosuit/untitled.blend");
+#if 0
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/my_scenes/ssao/"
+      "untitled.blend");
+#endif
+
+#if 0
+  bool res = LoadScene(
+      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
+      "sponza.blend");
+#endif
 
 #if 0
   bool res = LoadScene(
@@ -430,11 +444,6 @@ void MyDrawController::Load() {
       "untitled.blend");
 #endif
 
-#if 1
-  bool res = LoadScene(
-      "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
-#endif
-
 #if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/alpha_mask/untitled.blend");
@@ -444,8 +453,6 @@ void MyDrawController::Load() {
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/alpha_mask/obj/objects.blend");
 #endif
-  // bool res =
-  // LoadScene("/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.obj");
   // bool res =
   // LoadScene("/home/m16a/Documents/github/eduRen/models/dragon_recon/dragon_vrip_res4.ply");
   // bool res =
@@ -1112,7 +1119,7 @@ void InitSSAO(SSSAO& ssao, const Camera& cam) {
     for (unsigned int i = 0; i < 64; ++i) {
       glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0,
                        randomFloats(generator) * 2.0 - 1.0,
-                       randomFloats(generator));
+                       randomFloats(generator) * 0.9 + 0.1);
       sample = glm::normalize(sample);
       sample *= randomFloats(generator);
       float scale = (float)i / 64.0;

@@ -469,7 +469,11 @@ inline void Render(MyDrawController& mdc) {
 
   // draw offscreen to screen
   {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
+    if (MyDrawController::deferredShading) {
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, mdc.m_resources.ssao.FBO);
+    } else
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
+
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, offscreen.intermediateFB);
     glBlitFramebuffer(0, 0, sWinWidth, sWinHeight, 0, 0, sWinWidth, sWinHeight,
                       GL_COLOR_BUFFER_BIT, GL_NEAREST);

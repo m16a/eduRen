@@ -107,6 +107,8 @@ class MyDrawController {
                   bool doGammaCorrection, bool debugShadowMap,
                   float HDRexposure);
 
+  SResourceHandlers m_resources;
+
  private:
   bool LoadScene(const std::string& path);
   void InitLightModel();
@@ -156,7 +158,6 @@ class MyDrawController {
  private:
   Camera m_cam;
   CInputHandler m_inputHandler;
-  SResourceHandlers m_resources;
 
   const aiScene* m_pScene;
   aiVector3D m_scene_min, m_scene_max, m_scene_center;
