@@ -995,10 +995,11 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
   //
   // delete previous
   if (needReGenOnResize && gBuffer.FBO) {
-    GLuint arr[] = {gBuffer.pos, gBuffer.normal, gBuffer.albedoSpec};
-    glDeleteTextures(3, arr);
+    GLuint arr[] = {gBuffer.pos, gBuffer.normal, gBuffer.albedoSpec,
+                    gBuffer.depth};
+    glDeleteTextures(4, arr);
 
-    glDeleteRenderbuffers(1, &gBuffer.depth);
+    // glDeleteRenderbuffers(1, &gBuffer.depth);
   }
 
   GLint oldFBO = 0;
@@ -1068,6 +1069,28 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
 float lerp(float a, float b, float f) { return a + f * (b - a); }
 
 void InitSSAO(SSSAO& ssao, const Camera& cam) {
+  GLint tw = 0;
+  GLint th = 0;
+  bool needReGenOnResize = false;
+  if (ssao.FBO) {
+    glBindTexture(GL_TEXTURE_2D, ssao.colorTxt);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tw);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &th);
+  }
+
+  const int w = (int)cam.Width;
+  const int h = (int)cam.Height;
+
+  needReGenOnResize = (w != tw || h != th);
+
+  if (ssao.FBO && !needReGenOnResize) return;
+
+  // delete prev
+  if (ssao.FBO && needReGenOnResize) {
+    GLuint arr[] = {ssao.pass1Txt, ssao.colorTxt};
+    glDeleteTextures(2, arr);
+  }
+
   if (!ssao.pass1FBO) {
     // ssao noize texture
     {
@@ -1092,16 +1115,17 @@ void InitSSAO(SSSAO& ssao, const Camera& cam) {
     }
 
     glGenFramebuffers(1, &ssao.pass1FBO);
+    glGenFramebuffers(1, &ssao.FBO);
   }
 
-  // ssao textures
-  if (!ssao.pass1Txt) {
+  // ssao pass1 texture
+  {
     GLint oldFBO = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
 
     glBindFramebuffer(GL_FRAMEBUFFER, ssao.pass1FBO);
 
-    glGenTextures(1, &ssao.pass1Txt);  // TODO: delete on recreation
+    glGenTextures(1, &ssao.pass1Txt);
     glBindTexture(GL_TEXTURE_2D, ssao.pass1Txt);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (int)cam.Width, (int)cam.Height, 0,
                  GL_RGB, GL_FLOAT, NULL);
@@ -1115,11 +1139,11 @@ void InitSSAO(SSSAO& ssao, const Camera& cam) {
     glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
   }
 
-  if (!ssao.FBO) {
+  // ssao pass2 blured texture
+  {
     GLint oldFBO = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
 
-    glGenFramebuffers(1, &ssao.FBO);
     glBindFramebuffer(GL_FRAMEBUFFER, ssao.FBO);
     glGenTextures(1, &ssao.colorTxt);
     glBindTexture(GL_TEXTURE_2D, ssao.colorTxt);
