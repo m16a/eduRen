@@ -485,7 +485,7 @@ inline void Render(MyDrawController& mdc) {
 
   // draw offscreen to screen
   {
-    if (MyDrawController::deferredShading) {  // TODO: add debug SSAO checkbox
+    if (MyDrawController::debugSSAO) {  // TODO: add debug SSAO checkbox
       glBindFramebuffer(GL_READ_FRAMEBUFFER, mdc.m_resources.ssao.FBO);
     } else
       glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
@@ -500,11 +500,11 @@ inline void Render(MyDrawController& mdc) {
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
-    bool bGreyColor = false;
-    if (MyDrawController::deferredShading) bGreyColor = true;
+    bool bOneColor = false;
+    if (MyDrawController::debugSSAO) bOneColor = true;
 
     mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID,
-                   MyDrawController::isGammaCorrection, bGreyColor,
+                   MyDrawController::isGammaCorrection, bOneColor,
                    MyDrawController::HDR_exposure);
   }
 }

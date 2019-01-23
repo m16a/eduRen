@@ -1286,8 +1286,8 @@ void MyDrawController::RenderInternalDeferred(
                false, false, -1.0f);
     // DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.GBuffer.albedoSpec,
     //           false, true, -1.0f);
-    DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.ssao.pass1Txt, false,
-               false, -1.0f);
+    DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.ssao.colorTxt, false,
+               true, -1.0f);
     glEnable(GL_DEPTH_TEST);
   }
 }
