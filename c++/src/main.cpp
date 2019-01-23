@@ -391,10 +391,26 @@ void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
     ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
     MyDrawController::isSSAO = false;
+    MyDrawController::debugSSAO = false;
   }
 
   ImGui::Checkbox("debug GBUffer", &MyDrawController::debugGBuffer);
   ImGui::Checkbox("SSAO", &MyDrawController::isSSAO);
+
+  {
+    if (!MyDrawController::isSSAO) {
+      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    }
+
+    ImGui::SameLine(200);
+    ImGui::Checkbox("debug", &MyDrawController::debugSSAO);
+
+    if (!MyDrawController::isSSAO) {
+      ImGui::PopItemFlag();
+      ImGui::PopStyleVar();
+    }
+  }
 
   if (!MyDrawController::deferredShading) {
     ImGui::PopItemFlag();
@@ -469,7 +485,7 @@ inline void Render(MyDrawController& mdc) {
 
   // draw offscreen to screen
   {
-    if (MyDrawController::deferredShading) {
+    if (MyDrawController::deferredShading) {  // TODO: add debug SSAO checkbox
       glBindFramebuffer(GL_READ_FRAMEBUFFER, mdc.m_resources.ssao.FBO);
     } else
       glBindFramebuffer(GL_READ_FRAMEBUFFER, offscreen.FB);
@@ -484,8 +500,11 @@ inline void Render(MyDrawController& mdc) {
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
+    bool bGreyColor = false;
+    if (MyDrawController::deferredShading) bGreyColor = true;
+
     mdc.DrawRect2d(0, 0, sWinWidth, sWinHeight, offscreen.screenTextID,
-                   MyDrawController::isGammaCorrection, false,
+                   MyDrawController::isGammaCorrection, bGreyColor,
                    MyDrawController::HDR_exposure);
   }
 }

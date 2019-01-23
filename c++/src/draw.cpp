@@ -24,6 +24,7 @@ bool MyDrawController::isGammaCorrection = false;
 bool MyDrawController::drawGradientReference = false;
 bool MyDrawController::drawShadows = false;
 bool MyDrawController::isSSAO = false;
+bool MyDrawController::debugSSAO = false;
 
 bool MyDrawController::debugShadowMaps = false;
 std::string MyDrawController::debugOnmiShadowLightName = std::string();
@@ -59,6 +60,7 @@ std::shared_ptr<CShader> debugShadowCubeMapShader;
 std::shared_ptr<CShader> deferredGeomPathShader;
 std::shared_ptr<CShader> deferredLightPathShader;
 std::shared_ptr<CShader> ssaoShader;
+std::shared_ptr<CShader> blurShader;
 std::shared_ptr<CShader> currShader;
 
 std::shared_ptr<CShader> nullShader;
@@ -483,6 +485,9 @@ void MyDrawController::Load() {
 
   ssaoShader =
       std::make_shared<CShader>("shaders/ssao.vert", "shaders/ssao.frag");
+
+  blurShader =
+      std::make_shared<CShader>("shaders/blur.vert", "shaders/blur.frag");
 
   InitLightModel();
   InitFsQuad();
@@ -1063,7 +1068,7 @@ static void GenGBuffer(SGBuffer& gBuffer, const Camera& cam) {
 float lerp(float a, float b, float f) { return a + f * (b - a); }
 
 void InitSSAO(SSSAO& ssao, const Camera& cam) {
-  if (!ssao.FBO) {
+  if (!ssao.pass1FBO) {
     // ssao noize texture
     {
       std::uniform_real_distribution<float> randomFloats(
@@ -1086,48 +1091,67 @@ void InitSSAO(SSSAO& ssao, const Camera& cam) {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
 
-    glGenFramebuffers(1, &ssao.FBO);
+    glGenFramebuffers(1, &ssao.pass1FBO);
   }
 
-  // ssao fbo
-  if (!ssao.colorTxt) {
+  // ssao textures
+  if (!ssao.pass1Txt) {
     GLint oldFBO = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, ssao.FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, ssao.pass1FBO);
 
-    glGenTextures(1, &ssao.colorTxt);  // TODO: delete on recreation
-    glBindTexture(GL_TEXTURE_2D, ssao.colorTxt);
+    glGenTextures(1, &ssao.pass1Txt);  // TODO: delete on recreation
+    glBindTexture(GL_TEXTURE_2D, ssao.pass1Txt);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (int)cam.Width, (int)cam.Height, 0,
                  GL_RGB, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           ssao.colorTxt, 0);
+                           ssao.pass1Txt, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
   }
 
+  if (!ssao.FBO) {
+    GLint oldFBO = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+
+    glGenFramebuffers(1, &ssao.FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, ssao.FBO);
+    glGenTextures(1, &ssao.colorTxt);
+    glBindTexture(GL_TEXTURE_2D, ssao.colorTxt);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (int)cam.Width, (int)cam.Height, 0,
+                 GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           ssao.colorTxt, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+  }
+
   // setup kernel
   if (ssao.kernel.empty()) {
-    std::cout << "Samples:" << std::endl;
+    // std::cout << "Samples:" << std::endl;
     std::uniform_real_distribution<float> randomFloats(
         0.0, 1.0);  // random floats between 0.0 - 1.0
     std::default_random_engine generator;
     for (unsigned int i = 0; i < 64; ++i) {
       glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0,
                        randomFloats(generator) * 2.0 - 1.0,
-                       randomFloats(generator) * 0.9 + 0.1);
+                       randomFloats(generator) * 0.8 + 0.2);
       sample = glm::normalize(sample);
       sample *= randomFloats(generator);
       float scale = (float)i / 64.0;
       scale = lerp(0.1f, 1.0f, scale * scale);
       sample *= scale;
 
-      std::cout << "\t" << sample[0] << " " << sample[1] << " " << sample[2]
-                << std::endl;
+      // std::cout << "\t" << sample[0] << " " << sample[1] << " " << sample[2]
+      //          << std::endl;
       ssao.kernel.push_back(sample);
     }
   }
@@ -1139,28 +1163,42 @@ void MyDrawController::PerformSSAO(const SSSAO& ssao, const SGBuffer& gBuffer,
 
   GLint oldFBO = 0;
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
-  glBindFramebuffer(GL_FRAMEBUFFER, ssao.FBO);
-  glClear(GL_COLOR_BUFFER_BIT);
 
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, gBuffer.pos);
-  ssaoShader->setInt("gPosition", 0);
+  // pass1
+  {
+    glBindFramebuffer(GL_FRAMEBUFFER, ssao.pass1FBO);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, gBuffer.pos);
+    ssaoShader->setInt("gPosition", 0);
 
-  glActiveTexture(GL_TEXTURE0 + 1);
-  glBindTexture(GL_TEXTURE_2D, gBuffer.normal);
-  ssaoShader->setInt("gNormal", 1);
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_2D, gBuffer.normal);
+    ssaoShader->setInt("gNormal", 1);
 
-  glActiveTexture(GL_TEXTURE0 + 2);
-  glBindTexture(GL_TEXTURE_2D, ssao.noiseTxt);
-  ssaoShader->setInt("noiseTxt", 2);
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_2D, ssao.noiseTxt);
+    ssaoShader->setInt("noiseTxt", 2);
 
-  for (unsigned int i = 0; i < 64; ++i)
-    ssaoShader->setVec3("samples[" + std::to_string(i) + "]", ssao.kernel[i]);
+    for (unsigned int i = 0; i < 64; ++i)
+      ssaoShader->setVec3("samples[" + std::to_string(i) + "]", ssao.kernel[i]);
 
-  ssaoShader->setMat4("viewMat", cam.GetViewMatrix());
-  ssaoShader->setMat4("vpMat", cam.GetProjMatrix() * cam.GetViewMatrix());
+    ssaoShader->setMat4("viewMat", cam.GetViewMatrix());
+    ssaoShader->setMat4("vpMat", cam.GetProjMatrix() * cam.GetViewMatrix());
 
-  RenderFsQuad();
+    RenderFsQuad();
+  }
+
+  // blur
+  {
+    glBindFramebuffer(GL_FRAMEBUFFER, ssao.FBO);
+    blurShader->use();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, ssao.pass1Txt);
+    blurShader->setInt("inTexture", 0);
+
+    RenderFsQuad();
+  }
 
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
 }
@@ -1248,7 +1286,7 @@ void MyDrawController::RenderInternalDeferred(
                false, false, -1.0f);
     // DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.GBuffer.albedoSpec,
     //           false, true, -1.0f);
-    DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.ssao.colorTxt, false,
+    DrawRect2d(cam.Width - 315, 75, 300, 200, m_resources.ssao.pass1Txt, false,
                false, -1.0f);
     glEnable(GL_DEPTH_TEST);
   }
@@ -1351,7 +1389,7 @@ static float screenToNDC(float val, float scrSize) {
 
 static void DrawRect2d(float x, float y, float w, float h,
                        const glm::vec3& color, GLuint textureId, Camera& cam,
-                       bool doGammaCorrection, bool debugShadowMap,
+                       bool doGammaCorrection, bool bOneColorChannel,
                        float HDRexposure) {
   const float scrW = cam.Width;
   const float scrH = cam.Height;
@@ -1401,7 +1439,7 @@ static void DrawRect2d(float x, float y, float w, float h,
     rect2dShader->setBool("useColor", true);
   }
 
-  rect2dShader->setBool("debugShadowMap", debugShadowMap);
+  rect2dShader->setBool("bOneColorChannel", bOneColorChannel);
 
   rect2dShader->setBool("doGammaCorrection", doGammaCorrection);
 
@@ -1423,10 +1461,10 @@ void MyDrawController::DrawRect2d(float x, float y, float w, float h,
 
 void MyDrawController::DrawRect2d(float x, float y, float w, float h,
                                   GLuint textureId, bool doGammaCorrection,
-                                  bool debugShadowMap, float HDRexposure) {
+                                  bool bOneColorChannel, float HDRexposure) {
   glm::vec3 color;
   ::DrawRect2d(x, y, w, h, color, textureId, GetCam(), doGammaCorrection,
-               debugShadowMap, HDRexposure);
+               bOneColorChannel, HDRexposure);
 }
 
 void MyDrawController::DrawGradientReference() {

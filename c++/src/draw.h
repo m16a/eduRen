@@ -26,10 +26,14 @@ struct SGBuffer {
 };
 
 struct SSSAO {
-  GLuint FBO{0};
-  GLuint colorTxt{0};
+  GLuint pass1FBO{0};
+  GLuint pass1Txt{0};
   GLuint noiseTxt{0};
   std::vector<glm::vec3> kernel;
+
+  // blured
+  GLuint FBO{0};
+  GLuint colorTxt{0};
 };
 
 struct SResourceHandlers {
@@ -85,6 +89,7 @@ class MyDrawController {
   static bool isMSAA;
   static bool isGammaCorrection;
   static bool isSSAO;
+  static bool debugSSAO;
 
   static bool drawShadows;
   static bool debugShadowMaps;
@@ -104,7 +109,7 @@ class MyDrawController {
   void DrawRect2d(float x, float y, float w, float h, const glm::vec3& color,
                   bool doGammaCorrection);
   void DrawRect2d(float x, float y, float w, float h, GLuint textureId,
-                  bool doGammaCorrection, bool debugShadowMap,
+                  bool doGammaCorrection, bool bOneColorChannel,
                   float HDRexposure);
 
   SResourceHandlers m_resources;

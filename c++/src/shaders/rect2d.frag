@@ -5,7 +5,7 @@ in vec2 TexCoords;
 uniform vec3 color;
 uniform bool useColor;
 uniform bool doGammaCorrection;
-uniform bool debugShadowMap;
+uniform bool bOneColorChannel;
 uniform float HDR_exposure;
 
 uniform sampler2D in_texture;
@@ -19,7 +19,7 @@ void main()
 	}
 	else
 	{
-		if (debugShadowMap)
+		if (bOneColorChannel)
 		{
 			float depthValue = texture(in_texture, TexCoords).r;
 			resColor = vec3(depthValue);
