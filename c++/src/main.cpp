@@ -399,6 +399,7 @@ void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
 
   {
     if (!MyDrawController::isSSAO) {
+      MyDrawController::debugSSAO = false;
       ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
     }

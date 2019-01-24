@@ -43,6 +43,7 @@ uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec;
 uniform sampler2D gDepth;
+uniform sampler2D SSAOTxt;
 
 uniform mat4 lightSpaceMatrix;
 
@@ -126,6 +127,24 @@ subroutine (shadowMap) float globalShadowMap(vec3 fragPos, vec3 normal, vec4 fra
 }
 
 subroutine uniform shadowMap shadowMapSelection;
+
+
+// ----------------------SSAO-------------------------------------
+subroutine float AmbiantOclusion(vec2 TexCoord);
+
+subroutine (AmbiantOclusion) float empty(vec2 TexCoord)
+{
+	return 1.0f;
+}
+
+subroutine (AmbiantOclusion) float SSAO(vec2 TexCoord)
+{
+	return texture(SSAOTxt, TexCoord).r;
+}
+
+subroutine uniform AmbiantOclusion AmbiantOclusionSelection;
+
+
 // -----------------------------------------------------------
 void main()
 {    
@@ -183,7 +202,8 @@ void main()
 
 	vec4 dirFragPosLightSpace = lightSpaceMatrix * vec4(FragPos, 1.0);
 	float shadow = shadowMapSelection(FragPos, Normal, dirFragPosLightSpace, dirLights[0]);
-	fColor = vec4(vec3(res.ambient + (res.diffuse + res.specular) * (1.0 - shadow)), 1.0f);
+	float AO = AmbiantOclusionSelection(TexCoords);
+	fColor = vec4(vec3(res.ambient + (res.diffuse + res.specular) * (1.0 - shadow) * AO), 1.0f);
 	
 	//fColor = vec4(vec3(c), 1.0);
 }

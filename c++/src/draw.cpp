@@ -76,6 +76,7 @@ enum ETextureSlot {
   SkyBox,
   DirShadowMap,
   Opacity,
+  SSAO,
   OmniShadowMapStart = 10,
   OmniShadowMapEnd = 19
 };
@@ -629,7 +630,6 @@ void MyDrawController::SetupMaterial(
       data.push_back(std::pair<std::string, std::string>("getNormalSelection",
                                                          "getNormalSimple"));
     }
-
     currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
   }
 }
@@ -1258,7 +1258,7 @@ void MyDrawController::RenderInternalDeferred(
                     (int)cam.Height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
 
-  PerformSSAO(m_resources.ssao, m_resources.GBuffer, cam);
+  if (isSSAO) PerformSSAO(m_resources.ssao, m_resources.GBuffer, cam);
 
   // light path
   deferredLightPathShader->use();
@@ -1275,7 +1275,23 @@ void MyDrawController::RenderInternalDeferred(
     data.push_back(std::pair<std::string, std::string>("shadowMapSelection",
                                                        "emptyShadowMap"));
 
+  if (isSSAO) {
+    data.push_back(std::pair<std::string, std::string>(
+        "AmbiantOclusionSelection", "SSAO"));
+  } else {
+    data.push_back(std::pair<std::string, std::string>(
+        "AmbiantOclusionSelection", "empty"));
+  }
+
   currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
+
+  glActiveTexture(GL_TEXTURE0 + ETextureSlot::SSAO);
+  if (isSSAO) {
+    currShader->setInt("SSAOTxt", ETextureSlot::SSAO);
+    glBindTexture(GL_TEXTURE_2D, m_resources.ssao.colorTxt);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
 
   {
     glActiveTexture(GL_TEXTURE0 + 1);
