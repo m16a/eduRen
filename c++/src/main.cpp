@@ -418,6 +418,8 @@ void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
     ImGui::PopStyleVar();
   }
 
+  ImGui::Checkbox("PBR", &MyDrawController::isPBR);
+
   ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",

@@ -25,6 +25,7 @@ bool MyDrawController::drawGradientReference = false;
 bool MyDrawController::drawShadows = false;
 bool MyDrawController::isSSAO = false;
 bool MyDrawController::debugSSAO = false;
+bool MyDrawController::isPBR = false;
 
 bool MyDrawController::debugShadowMaps = false;
 std::string MyDrawController::debugOnmiShadowLightName = std::string();
@@ -61,6 +62,8 @@ std::shared_ptr<CShader> deferredGeomPathShader;
 std::shared_ptr<CShader> deferredLightPathShader;
 std::shared_ptr<CShader> ssaoShader;
 std::shared_ptr<CShader> blurShader;
+std::shared_ptr<CShader> pbrPointShader;
+
 std::shared_ptr<CShader> currShader;
 
 std::shared_ptr<CShader> nullShader;
@@ -185,6 +188,7 @@ std::string GetUniformTextureName(aiTextureType type) {
     case aiTextureType_OPACITY:
     case aiTextureType_UNKNOWN:
       return "inTexture.opacity";
+
       break;
   }
 
@@ -400,9 +404,14 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-#if 1
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
+#endif
+
+#if 1
+  bool res =
+      LoadScene("/home/m16a/Documents/github/eduRen/models/pbr/untitled.blend");
 #endif
 
 #if 0
@@ -490,9 +499,53 @@ void MyDrawController::Load() {
   blurShader =
       std::make_shared<CShader>("shaders/blur.vert", "shaders/blur.frag");
 
+  pbrPointShader = std::make_shared<CShader>("shaders/pbrPoint.vert",
+                                             "shaders/pbrPoint.frag");
+
   InitLightModel();
   InitFsQuad();
   m_resources.skyboxTextID = LoadCubemap();
+}
+
+const char* PBRuniformName(ECustomPBRTextureType type) {
+  switch (type) {
+    case Albedo:
+      return "albedoMap";
+    case Norm:
+      return "normalMap";
+    case Metallic:
+      return "metallicMap";
+    case Roughness:
+      return "roughnessMap";
+    case AO:
+      return "aoMap";
+    default:
+      assert(0 && "unsupported pbr texture type");
+      break;
+  }
+  return "";
+}
+bool MyDrawController::BindPBRTexture(ECustomPBRTextureType type,
+                                      const std::string& path) {
+  bool res = false;
+
+  static std::vector<int> sPBRTextures(ECustomPBRTextureType::Count,
+                                       0);  // TODO:leak
+
+  GLuint id = 0;
+  if (sPBRTextures[type]) {
+    id = sPBRTextures[type];
+  } else {
+    id = TextureFromFile(path.c_str(), m_dirPath);
+    sPBRTextures[type] = id;
+  }
+
+  glActiveTexture(GL_TEXTURE0 + type);
+  currShader->setInt(PBRuniformName(type), type);
+  glBindTexture(GL_TEXTURE_2D, id);
+  res = true;
+
+  return res;
 }
 
 bool MyDrawController::BindTexture(const aiMaterial& mat, aiTextureType type,
@@ -538,7 +591,9 @@ void MyDrawController::SetupMaterial(
   // std::cout << "matIndx: " << matIndx << std::endl;
   const aiMaterial& material = *m_pScene->mMaterials[matIndx];
 
-  if (overrideProgram)
+  if (MyDrawController::isPBR)
+    currShader = pbrPointShader;
+  else if (overrideProgram)
     currShader = overrideProgram;
   else
     currShader = mainShader;
@@ -631,6 +686,12 @@ void MyDrawController::SetupMaterial(
                                                          "getNormalSimple"));
     }
     currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
+  } else if (currShader == pbrPointShader) {
+    BindPBRTexture(Albedo, "rustediron2_basecolor.png");
+    BindPBRTexture(Norm, "rustediron2_normal.png");
+    BindPBRTexture(Metallic, "rustediron2_metallic.png");
+    BindPBRTexture(Roughness, "rustediron2_roughness.png");
+    // BindPBRTexture(AO,"");
   }
 }
 

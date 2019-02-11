@@ -67,6 +67,8 @@ struct SResourceHandlers {
 
 enum EBumpMappingType { Normal, Height };
 
+enum ECustomPBRTextureType { Albedo = 0, Norm, Metallic, Roughness, AO, Count };
+
 class MyDrawController {
  public:
   MyDrawController();
@@ -90,6 +92,8 @@ class MyDrawController {
   static bool isGammaCorrection;
   static bool isSSAO;
   static bool debugSSAO;
+
+  static bool isPBR;
 
   static bool drawShadows;
   static bool debugShadowMaps;
@@ -138,6 +142,7 @@ class MyDrawController {
                    const Camera& cam);
   // returns true on success
   bool BindTexture(const aiMaterial& mat, aiTextureType type, int indx);
+  bool BindPBRTexture(ECustomPBRTextureType type, const std::string& path);
   void SetupLights(const std::string& onlyLight);
   void LoadMeshesData();
   void SetupMaterial(const aiMesh& mesh,
