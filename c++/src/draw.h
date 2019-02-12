@@ -94,6 +94,7 @@ class MyDrawController {
   static bool debugSSAO;
 
   static bool isPBR;
+  static bool isIBL;
 
   static bool drawShadows;
   static bool debugShadowMaps;
@@ -155,6 +156,8 @@ class MyDrawController {
 
   // draw gradient to debug gamma correction
   void DrawGradientReference();
+
+  void IBL_PrecomputeEnvProbe();
 
  private:
   struct SShadowMap {

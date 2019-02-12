@@ -26,6 +26,7 @@ bool MyDrawController::drawShadows = false;
 bool MyDrawController::isSSAO = false;
 bool MyDrawController::debugSSAO = false;
 bool MyDrawController::isPBR = false;
+bool MyDrawController::isIBL = false;
 
 bool MyDrawController::debugShadowMaps = false;
 std::string MyDrawController::debugOnmiShadowLightName = std::string();
@@ -39,9 +40,11 @@ float MyDrawController::HDR_exposure = 0.0f;
 bool MyDrawController::deferredShading = false;
 bool MyDrawController::debugGBuffer = false;
 
-glm::vec4 MyDrawController::clearColor(57.f / 255.0f, 57.f / 255.0f,
-                                       57.f / 255.0f, 1.00f);
+// glm::vec4 MyDrawController::clearColor(57.f / 255.0f, 57.f / 255.0f,
+//                                       57.f / 255.0f, 1.00f);
 
+glm::vec4 MyDrawController::clearColor(0.f / 255.0f, 0.f / 255.0f, 0.f / 255.0f,
+                                       1.00f);
 enum Attrib_IDs {
   vPosition = 0,
   vNormals = 1,
@@ -143,7 +146,37 @@ unsigned int TextureFromFile(const char* path, const std::string& directory) {
     stbi_image_free(data);
   } else {
     std::cout << "Texture failed to load at path: " << path << std::endl;
+  }
+
+  return textureID;
+}
+
+unsigned int HDRTextureFromFile(const char* path,
+                                const std::string& directory) {
+  std::string filename = std::string(path);
+  filename = directory + '/' + filename;
+
+  unsigned int textureID;
+  glGenTextures(1, &textureID);
+
+  int width, height, nrComponents;
+  stbi_set_flip_vertically_on_load(true);
+  unsigned char* data =
+      stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+  if (data) {
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB,
+                 GL_FLOAT, data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
     stbi_image_free(data);
+  } else {
+    std::cout << "Texture failed to load at path: " << path << std::endl;
   }
 
   return textureID;
@@ -1621,4 +1654,10 @@ void MyDrawController::DebugCubeShadowMap() {
   glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, 0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glDepthFunc(GL_LESS);
+}
+
+void MyDrawController::IBL_PrecomputeEnvProbe() {
+  // read texture
+  GLint id = HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
+  assert(id);
 }

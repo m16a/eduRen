@@ -419,6 +419,8 @@ void DrawUI(MyDrawController& mdc, const std::vector<float>& fpss) {
   }
 
   ImGui::Checkbox("PBR", &MyDrawController::isPBR);
+  ImGui::SameLine(200);
+  ImGui::Checkbox("IBL", &MyDrawController::isIBL);
 
   ImGui::SliderInt("fov", &cam.FOV, 10, 90);
 
