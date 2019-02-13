@@ -36,6 +36,10 @@ struct SSSAO {
   GLuint colorTxt{0};
 };
 
+struct SEnvProbe {
+  GLuint cubeMap{0};
+};
+
 struct SResourceHandlers {
   using TArr = std::array<GLuint, kMaxMeshesCount>;
   TArr VAOs;
@@ -157,7 +161,7 @@ class MyDrawController {
   // draw gradient to debug gamma correction
   void DrawGradientReference();
 
-  void IBL_PrecomputeEnvProbe();
+  void IBL_PrecomputeEnvProbe(SEnvProbe& out_probe);
 
  private:
   struct SShadowMap {

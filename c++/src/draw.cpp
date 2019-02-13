@@ -66,6 +66,7 @@ std::shared_ptr<CShader> deferredLightPathShader;
 std::shared_ptr<CShader> ssaoShader;
 std::shared_ptr<CShader> blurShader;
 std::shared_ptr<CShader> pbrPointShader;
+std::shared_ptr<CShader> equirectShader;
 
 std::shared_ptr<CShader> currShader;
 
@@ -161,8 +162,7 @@ unsigned int HDRTextureFromFile(const char* path,
 
   int width, height, nrComponents;
   stbi_set_flip_vertically_on_load(true);
-  unsigned char* data =
-      stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+  float* data = stbi_loadf(filename.c_str(), &width, &height, &nrComponents, 0);
   if (data) {
     glBindTexture(GL_TEXTURE_2D, textureID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB,
@@ -535,6 +535,9 @@ void MyDrawController::Load() {
   pbrPointShader = std::make_shared<CShader>("shaders/pbrPoint.vert",
                                              "shaders/pbrPoint.frag");
 
+  equirectShader = std::make_shared<CShader>("shaders/equirectangularMap.vert",
+                                             "shaders/equirectangularMap.frag");
+
   InitLightModel();
   InitFsQuad();
   m_resources.skyboxTextID = LoadCubemap();
@@ -725,6 +728,16 @@ void MyDrawController::SetupMaterial(
     BindPBRTexture(Metallic, "rustediron2_metallic.png");
     BindPBRTexture(Roughness, "rustediron2_roughness.png");
     // BindPBRTexture(AO,"");
+
+    if (MyDrawController::isIBL) {
+      static SEnvProbe probe;  // TODO::leak
+
+      if (1 || !probe.cubeMap) IBL_PrecomputeEnvProbe(probe);
+
+      if (m_resources.skyboxTextID)
+        glDeleteTextures(1, &m_resources.skyboxTextID);
+      m_resources.skyboxTextID = probe.cubeMap;  // TODO:prev leak
+    }
   }
 }
 
@@ -1656,8 +1669,76 @@ void MyDrawController::DebugCubeShadowMap() {
   glDepthFunc(GL_LESS);
 }
 
-void MyDrawController::IBL_PrecomputeEnvProbe() {
-  // read texture
-  GLint id = HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
-  assert(id);
+void MyDrawController::IBL_PrecomputeEnvProbe(SEnvProbe& out_probe) {
+  GLuint hdrTexture =
+      HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
+  assert(hdrTexture);
+
+  GLint oldFBO = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+
+  unsigned int captureFBO, captureRBO;
+  glGenFramebuffers(1, &captureFBO);
+  glGenRenderbuffers(1, &captureRBO);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+  glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, captureRBO);
+
+  unsigned int envCubemap;
+  glGenTextures(1, &envCubemap);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
+  for (unsigned int i = 0; i < 6; ++i) {
+    // note that we store each face with 16 bit floating point values
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0,
+                 GL_RGB, GL_FLOAT, nullptr);
+  }
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glm::mat4 captureProjection =
+      glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+  glm::mat4 captureViews[] = {
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f),
+                  glm::vec3(0.0f, 0.0f, 1.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f),
+                  glm::vec3(0.0f, 0.0f, -1.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f))};
+
+  // convert HDR equirectangular environment map to cubemap equivalent
+  equirectShader->use();
+  equirectShader->setInt("equirectangularMap", 0);
+  equirectShader->setMat4("projection", captureProjection);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, hdrTexture);
+
+  // TODO: maybe restore prev
+  glViewport(0, 0, 512, 512);  // don't forget to configure the viewport to the
+                               // capture dimensions.
+  glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+  for (unsigned int i = 0; i < 6; ++i) {
+    equirectShader->setMat4("view", captureViews[i]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envCubemap, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    renderFullCube();  // renders a 1x1 cube
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+
+  glDeleteTextures(1, &hdrTexture);
+
+  out_probe.cubeMap = envCubemap;
 }
