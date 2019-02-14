@@ -67,6 +67,7 @@ std::shared_ptr<CShader> ssaoShader;
 std::shared_ptr<CShader> blurShader;
 std::shared_ptr<CShader> pbrPointShader;
 std::shared_ptr<CShader> equirectShader;
+std::shared_ptr<CShader> irradianceShader;
 
 std::shared_ptr<CShader> currShader;
 
@@ -534,8 +535,11 @@ void MyDrawController::Load() {
   pbrPointShader = std::make_shared<CShader>("shaders/pbrPoint.vert",
                                              "shaders/pbrPoint.frag");
 
-  equirectShader = std::make_shared<CShader>("shaders/equirectangularMap.vert",
+  equirectShader = std::make_shared<CShader>("shaders/cubemap.vert",
                                              "shaders/equirectangularMap.frag");
+
+  irradianceShader = std::make_shared<CShader>("shaders/cubemap.vert",
+                                               "shaders/ibl_irradiance.frag");
 
   InitLightModel();
   InitFsQuad();
@@ -1505,9 +1509,10 @@ void MyDrawController::RenderSkyBox(const Camera& cam) {
   glActiveTexture(GL_TEXTURE0 + ETextureSlot::SkyBox);
   skyboxShader->setInt("skybox", ETextureSlot::SkyBox);
 
-  if (m_resources.envProbe.cubeMap)
-    glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.cubeMap);
-  else
+  if (m_resources.envProbe.cubeMap) {
+    // glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.cubeMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.irradianceMap);
+  } else
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
   glm::mat4 rot =
@@ -1667,20 +1672,13 @@ void MyDrawController::DebugCubeShadowMap() {
   glDepthFunc(GL_LESS);
 }
 
-void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
-                                              SEnvProbe& out_probe) {
-  GLuint hdrTexture =
-      // HDRTextureFromFile("Ridgecrest_Road_preview.jpg", m_dirPath);
-      // HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
-      HDRTextureFromFile("Newport_Loft_8k.jpg", m_dirPath);
-  assert(hdrTexture);
-
+static GLuint EquirectImageToCubeMap(GLuint image, const Camera& cam) {
   GLint oldFBO = 0;
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
 
   unsigned int captureFBO, captureRBO;
   glGenFramebuffers(1, &captureFBO);
-  glGenRenderbuffers(1, &captureRBO);
+  glGenRenderbuffers(1, &captureRBO);  // TODO: leak
 
   glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
   glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
@@ -1723,7 +1721,7 @@ void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
   equirectShader->setInt("equirectangularMap", 0);
   equirectShader->setMat4("projection", captureProjection);
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, hdrTexture);
+  glBindTexture(GL_TEXTURE_2D, image);
 
   glViewport(0, 0, 512, 512);
   glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
@@ -1740,11 +1738,99 @@ void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
   glEnable(GL_CULL_FACE);
 
+  glDeleteRenderbuffers(1, &captureRBO);
+  glDeleteFramebuffers(1, &captureFBO);
+
   glViewport(0, 0, cam.Width, cam.Height);
+  return envCubemap;
+}
+
+static GLuint IrradianceMapFromCubeMap(GLuint cubeMap, const Camera& cam) {
+  GLint oldFBO = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+
+  unsigned int captureFBO, captureRBO;
+  glGenFramebuffers(1, &captureFBO);
+  glGenRenderbuffers(1, &captureRBO);
+
+  unsigned int irradianceMap;
+  glGenTextures(1, &irradianceMap);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
+  for (unsigned int i = 0; i < 6; ++i) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 32, 32, 0,
+                 GL_RGB, GL_FLOAT, nullptr);
+  }
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+  glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 32, 32);
+
+  glm::mat4 captureProjection =
+      glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+  glm::mat4 captureViews[] = {
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f),
+                  glm::vec3(0.0f, 0.0f, 1.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f),
+                  glm::vec3(0.0f, 0.0f, -1.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f)),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f),
+                  glm::vec3(0.0f, -1.0f, 0.0f))};
+
+  irradianceShader->use();
+  irradianceShader->setInt("environmentMap", 0);
+  irradianceShader->setMat4("projection", captureProjection);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMap);
+
+  glViewport(0, 0, 32, 32);
+  glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+  glDisable(GL_CULL_FACE);
+
+  for (unsigned int i = 0; i < 6; ++i) {
+    irradianceShader->setMat4("view", captureViews[i]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceMap,
+                           0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    renderFullCube();
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+  glViewport(0, 0, cam.Width, cam.Height);
+  glEnable(GL_CULL_FACE);
+
+  glDeleteRenderbuffers(1, &captureRBO);
+  glDeleteFramebuffers(1, &captureFBO);
+
+  return irradianceMap;
+}
+
+void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
+                                              SEnvProbe& out_probe) {
+  GLuint hdrTexture =
+      // HDRTextureFromFile("Ridgecrest_Road_preview.jpg", m_dirPath);
+      // HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
+      HDRTextureFromFile("Newport_Loft_8k.jpg", m_dirPath);
+  assert(hdrTexture);
+
+  GLuint cubeMap = EquirectImageToCubeMap(hdrTexture, cam);
 
   glDeleteTextures(1, &hdrTexture);
 
-  if (out_probe.cubeMap) glDeleteTextures(1, &out_probe.cubeMap);
+  GLuint irrMap = IrradianceMapFromCubeMap(cubeMap, cam);
 
-  out_probe.cubeMap = envCubemap;
+  if (out_probe.cubeMap) glDeleteTextures(1, &out_probe.cubeMap);
+  out_probe.cubeMap = cubeMap;
+
+  out_probe.irradianceMap = irrMap;
 }

@@ -38,6 +38,7 @@ struct SSSAO {
 
 struct SEnvProbe {
   GLuint cubeMap{0};
+  GLuint irradianceMap{0};
 };
 
 struct SResourceHandlers {
