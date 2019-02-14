@@ -66,6 +66,7 @@ std::shared_ptr<CShader> deferredLightPathShader;
 std::shared_ptr<CShader> ssaoShader;
 std::shared_ptr<CShader> blurShader;
 std::shared_ptr<CShader> pbrPointShader;
+std::shared_ptr<CShader> pbrIBLShader;
 std::shared_ptr<CShader> equirectShader;
 std::shared_ptr<CShader> irradianceShader;
 
@@ -535,6 +536,9 @@ void MyDrawController::Load() {
   pbrPointShader = std::make_shared<CShader>("shaders/pbrPoint.vert",
                                              "shaders/pbrPoint.frag");
 
+  pbrIBLShader =
+      std::make_shared<CShader>("shaders/pbrIBL.vert", "shaders/pbrIBL.frag");
+
   equirectShader = std::make_shared<CShader>("shaders/cubemap.vert",
                                              "shaders/equirectangularMap.frag");
 
@@ -630,7 +634,9 @@ void MyDrawController::SetupMaterial(
   // std::cout << "matIndx: " << matIndx << std::endl;
   const aiMaterial& material = *m_pScene->mMaterials[matIndx];
 
-  if (MyDrawController::isPBR)
+  if (MyDrawController::isIBL)
+    currShader = pbrIBLShader;
+  else if (MyDrawController::isPBR)
     currShader = pbrPointShader;
   else if (overrideProgram)
     currShader = overrideProgram;
@@ -725,12 +731,19 @@ void MyDrawController::SetupMaterial(
                                                          "getNormalSimple"));
     }
     currShader->setSubroutine(GL_FRAGMENT_SHADER, data);
-  } else if (currShader == pbrPointShader) {
+  } else if (currShader == pbrPointShader || currShader == pbrIBLShader) {
     BindPBRTexture(Albedo, "rustediron2_basecolor.png");
     BindPBRTexture(Norm, "rustediron2_normal.png");
     BindPBRTexture(Metallic, "rustediron2_metallic.png");
     BindPBRTexture(Roughness, "rustediron2_roughness.png");
     // BindPBRTexture(AO,"");
+
+    if (currShader == pbrIBLShader) {
+      glActiveTexture(GL_TEXTURE0 + 20);
+      currShader->setInt("irradianceMap", 20);
+
+      glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.irradianceMap);
+    }
   }
 }
 
