@@ -252,7 +252,6 @@ unsigned int LoadCubemap() {
     } else {
       std::cout << "Cubemap texture failed to load at path: " << faces[i]
                 << std::endl;
-      stbi_image_free(data);
     }
   }
 
@@ -728,16 +727,6 @@ void MyDrawController::SetupMaterial(
     BindPBRTexture(Metallic, "rustediron2_metallic.png");
     BindPBRTexture(Roughness, "rustediron2_roughness.png");
     // BindPBRTexture(AO,"");
-
-    if (MyDrawController::isIBL) {
-      static SEnvProbe probe;  // TODO::leak
-
-      if (1 || !probe.cubeMap) IBL_PrecomputeEnvProbe(probe);
-
-      if (m_resources.skyboxTextID)
-        glDeleteTextures(1, &m_resources.skyboxTextID);
-      m_resources.skyboxTextID = probe.cubeMap;  // TODO:prev leak
-    }
   }
 }
 
@@ -1446,6 +1435,11 @@ void MyDrawController::Render(const Camera& cam) {
     if (isWireMode) isWireMode = false;
   }
 
+  if (MyDrawController::isIBL) {
+    if (!m_resources.envProbe.cubeMap)
+      IBL_PrecomputeEnvProbe(cam, m_resources.envProbe);
+  }
+
   glPolygonMode(GL_FRONT_AND_BACK, isWireMode ? GL_LINE : GL_FILL);
 
   if (drawShadows)
@@ -1510,7 +1504,11 @@ void MyDrawController::RenderSkyBox(const Camera& cam) {
 
   glActiveTexture(GL_TEXTURE0 + ETextureSlot::SkyBox);
   skyboxShader->setInt("skybox", ETextureSlot::SkyBox);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
+
+  if (m_resources.envProbe.cubeMap)
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.cubeMap);
+  else
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
   glm::mat4 rot =
       glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(-1, 0, 0));
@@ -1669,9 +1667,12 @@ void MyDrawController::DebugCubeShadowMap() {
   glDepthFunc(GL_LESS);
 }
 
-void MyDrawController::IBL_PrecomputeEnvProbe(SEnvProbe& out_probe) {
+void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
+                                              SEnvProbe& out_probe) {
   GLuint hdrTexture =
-      HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
+      // HDRTextureFromFile("Ridgecrest_Road_preview.jpg", m_dirPath);
+      // HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
+      HDRTextureFromFile("Newport_Loft_8k.jpg", m_dirPath);
   assert(hdrTexture);
 
   GLint oldFBO = 0;
@@ -1724,10 +1725,10 @@ void MyDrawController::IBL_PrecomputeEnvProbe(SEnvProbe& out_probe) {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, hdrTexture);
 
-  // TODO: maybe restore prev
-  glViewport(0, 0, 512, 512);  // don't forget to configure the viewport to the
-                               // capture dimensions.
+  glViewport(0, 0, 512, 512);
   glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+
+  glDisable(GL_CULL_FACE);
   for (unsigned int i = 0; i < 6; ++i) {
     equirectShader->setMat4("view", captureViews[i]);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -1737,8 +1738,13 @@ void MyDrawController::IBL_PrecomputeEnvProbe(SEnvProbe& out_probe) {
     renderFullCube();  // renders a 1x1 cube
   }
   glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+  glEnable(GL_CULL_FACE);
+
+  glViewport(0, 0, cam.Width, cam.Height);
 
   glDeleteTextures(1, &hdrTexture);
+
+  if (out_probe.cubeMap) glDeleteTextures(1, &out_probe.cubeMap);
 
   out_probe.cubeMap = envCubemap;
 }

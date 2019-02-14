@@ -66,6 +66,8 @@ struct SResourceHandlers {
   SGBuffer GBuffer;
   SSSAO ssao;
 
+  SEnvProbe envProbe;
+
   void Release();
 };
 
@@ -161,7 +163,7 @@ class MyDrawController {
   // draw gradient to debug gamma correction
   void DrawGradientReference();
 
-  void IBL_PrecomputeEnvProbe(SEnvProbe& out_probe);
+  void IBL_PrecomputeEnvProbe(const Camera& cam, SEnvProbe& out_probe);
 
  private:
   struct SShadowMap {
