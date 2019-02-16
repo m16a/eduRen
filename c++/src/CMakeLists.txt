@@ -8,6 +8,7 @@ set(SOURCES
 	draw.cpp
 	cube.cpp
 	input_handler.cpp
+	misc.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui_demo.cpp
 	${CMAKE_SOURCE_DIR}/3rdparty/imgui/imgui-master/imgui_draw.cpp

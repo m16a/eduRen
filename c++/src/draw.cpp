@@ -1,6 +1,7 @@
 #include "draw.h"
 #include "cube.h"
 #include "input_handler.h"
+#include "misc.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/mat4x4.hpp>
@@ -69,6 +70,7 @@ std::shared_ptr<CShader> pbrPointShader;
 std::shared_ptr<CShader> pbrIBLShader;
 std::shared_ptr<CShader> equirectShader;
 std::shared_ptr<CShader> irradianceShader;
+std::shared_ptr<CShader> prefilterShader;
 
 std::shared_ptr<CShader> currShader;
 
@@ -545,6 +547,9 @@ void MyDrawController::Load() {
   irradianceShader = std::make_shared<CShader>("shaders/cubemap.vert",
                                                "shaders/ibl_irradiance.frag");
 
+  prefilterShader = std::make_shared<CShader>("shaders/cubemap.vert",
+                                              "shaders/ibl_prefilter.frag");
+
   InitLightModel();
   InitFsQuad();
   m_resources.skyboxTextID = LoadCubemap();
@@ -739,10 +744,13 @@ void MyDrawController::SetupMaterial(
     // BindPBRTexture(AO,"");
 
     if (currShader == pbrIBLShader) {
-      glActiveTexture(GL_TEXTURE0 + 20);
-      currShader->setInt("irradianceMap", 20);
-
+      glActiveTexture(GL_TEXTURE0 + 19);
+      currShader->setInt("irradianceMap", 19);
       glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.irradianceMap);
+
+      glActiveTexture(GL_TEXTURE0 + 20);
+      currShader->setInt("prefilterMap", 20);
+      glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.prefilterdMap);
     }
   }
 }
@@ -1713,26 +1721,10 @@ static GLuint EquirectImageToCubeMap(GLuint image, const Camera& cam) {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  glm::mat4 captureProjection =
-      glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-  glm::mat4 captureViews[] = {
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, 1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, -1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f))};
-
   // convert HDR equirectangular environment map to cubemap equivalent
   equirectShader->use();
   equirectShader->setInt("equirectangularMap", 0);
-  equirectShader->setMat4("projection", captureProjection);
+  equirectShader->setMat4("projection", IBLCaptureProjection);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, image);
 
@@ -1741,7 +1733,7 @@ static GLuint EquirectImageToCubeMap(GLuint image, const Camera& cam) {
 
   glDisable(GL_CULL_FACE);
   for (unsigned int i = 0; i < 6; ++i) {
-    equirectShader->setMat4("view", captureViews[i]);
+    equirectShader->setMat4("view", IBLCaptureViews[i]);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envCubemap, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1783,25 +1775,9 @@ static GLuint IrradianceMapFromCubeMap(GLuint cubeMap, const Camera& cam) {
   glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 32, 32);
 
-  glm::mat4 captureProjection =
-      glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-  glm::mat4 captureViews[] = {
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, 1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, -1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f),
-                  glm::vec3(0.0f, -1.0f, 0.0f))};
-
   irradianceShader->use();
   irradianceShader->setInt("environmentMap", 0);
-  irradianceShader->setMat4("projection", captureProjection);
+  irradianceShader->setMat4("projection", IBLCaptureProjection);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMap);
 
@@ -1810,7 +1786,7 @@ static GLuint IrradianceMapFromCubeMap(GLuint cubeMap, const Camera& cam) {
   glDisable(GL_CULL_FACE);
 
   for (unsigned int i = 0; i < 6; ++i) {
-    irradianceShader->setMat4("view", captureViews[i]);
+    irradianceShader->setMat4("view", IBLCaptureViews[i]);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceMap,
                            0);
@@ -1828,6 +1804,70 @@ static GLuint IrradianceMapFromCubeMap(GLuint cubeMap, const Camera& cam) {
   return irradianceMap;
 }
 
+static GLuint PrefilterMap(GLuint cubeMap, const Camera& cam) {
+  GLint oldFBO = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+
+  unsigned int captureFBO, captureRBO;
+  glGenFramebuffers(1, &captureFBO);
+  glGenRenderbuffers(1, &captureRBO);
+
+  unsigned int prefilterMap;
+  glGenTextures(1, &prefilterMap);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
+  for (unsigned int i = 0; i < 6; ++i) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0,
+                 GL_RGB, GL_FLOAT, nullptr);
+  }
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
+  // pbr: run a quasi monte-carlo simulation on the environment lighting to
+  // create a prefilter (cube)map.
+  // ----------------------------------------------------------------------------------------------------
+  prefilterShader->use();
+  prefilterShader->setInt("environmentMap", 0);
+  prefilterShader->setMat4("projection", IBLCaptureProjection);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMap);
+
+  glDisable(GL_CULL_FACE);
+  glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+  unsigned int maxMipLevels = 5;
+  for (unsigned int mip = 0; mip < maxMipLevels; ++mip) {
+    // reisze framebuffer according to mip-level size.
+    unsigned int mipWidth = 128 * std::pow(0.5, mip);
+    unsigned int mipHeight = 128 * std::pow(0.5, mip);
+    glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mipWidth,
+                          mipHeight);
+    glViewport(0, 0, mipWidth, mipHeight);
+
+    float roughness = (float)mip / (float)(maxMipLevels - 1);
+    prefilterShader->setFloat("roughness", roughness);
+    for (unsigned int i = 0; i < 6; ++i) {
+      prefilterShader->setMat4("view", IBLCaptureViews[i]);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                             GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, prefilterMap,
+                             mip);
+
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      renderFullCube();
+    }
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+  glViewport(0, 0, cam.Width, cam.Height);
+  glEnable(GL_CULL_FACE);
+
+  return prefilterMap;
+}
+
 void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
                                               SEnvProbe& out_probe) {
   GLuint hdrTexture =
@@ -1835,12 +1875,14 @@ void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
       // HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
       HDRTextureFromFile("Newport_Loft_8k.jpg", m_dirPath);
   assert(hdrTexture);
-
   GLuint cubeMap = EquirectImageToCubeMap(hdrTexture, cam);
-
   glDeleteTextures(1, &hdrTexture);
 
   GLuint irrMap = IrradianceMapFromCubeMap(cubeMap, cam);
+
+  GLuint prefMap = PrefilterMap(cubeMap, cam);
+
+  out_probe.prefilterdMap = prefMap;
 
   if (out_probe.cubeMap) glDeleteTextures(1, &out_probe.cubeMap);
   out_probe.cubeMap = cubeMap;
