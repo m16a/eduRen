@@ -13,8 +13,11 @@ uniform sampler2D aoMap;
 
 uniform samplerCube irradianceMap;
 uniform samplerCube prefilterMap;
+uniform sampler2D brdfLUT;
 
 uniform vec3 camPos;
+
+uniform mat4 rotfix;//messed up with corrdinate systems
 
 const float PI = 3.14159265359;
 // ----------------------------------------------------------------------------
@@ -107,15 +110,19 @@ void main()
     vec3 kS = fresnelSchlick(max(dot(N, V), 0.0), F0);
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - metallic;
-    vec3 irradiance = texture(irradianceMap, N).rgb;
+    vec3 patchedN = normalize(vec3( rotfix * vec4(N, 0.0)));
+    vec3 irradiance = texture(irradianceMap, patchedN).rgb;
     vec3 diffuse      = irradiance * albedo;
 
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
 
     const float MAX_REFLECTION_LOD = 4.0;
+
+	R = normalize(vec3( rotfix * vec4(R, 0.0)));
+
     vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
-    //vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
-    vec3 specular = prefilteredColor;// * (F * brdf.x + brdf.y);
+    vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
 
     vec3 ambient = (kD * diffuse + specular);
 

@@ -71,6 +71,7 @@ std::shared_ptr<CShader> pbrIBLShader;
 std::shared_ptr<CShader> equirectShader;
 std::shared_ptr<CShader> irradianceShader;
 std::shared_ptr<CShader> prefilterShader;
+std::shared_ptr<CShader> brdfShader;
 
 std::shared_ptr<CShader> currShader;
 
@@ -550,6 +551,9 @@ void MyDrawController::Load() {
   prefilterShader = std::make_shared<CShader>("shaders/cubemap.vert",
                                               "shaders/ibl_prefilter.frag");
 
+  brdfShader = std::make_shared<CShader>("shaders/ibl_brdf.vert",
+                                         "shaders/ibl_brdf.frag");
+
   InitLightModel();
   InitFsQuad();
   m_resources.skyboxTextID = LoadCubemap();
@@ -751,6 +755,10 @@ void MyDrawController::SetupMaterial(
       glActiveTexture(GL_TEXTURE0 + 20);
       currShader->setInt("prefilterMap", 20);
       glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.prefilterdMap);
+
+      glActiveTexture(GL_TEXTURE0 + 21);
+      currShader->setInt("brdfLUT", 21);
+      glBindTexture(GL_TEXTURE_2D, m_resources.envProbe.brdfLUT);
     }
   }
 }
@@ -764,7 +772,7 @@ void MyDrawController::SetupProgramTransforms(const Camera& cam,
   currShader->setMat4("proj", proj);
   currShader->setVec3("camPos", cam.Position);
 
-  if (drawSkybox) {
+  if (drawSkybox || MyDrawController::isIBL) {
     glm::mat4 rot =
         glm::rotate(glm::mat4(1.0f), (float)M_PI / 2.0f, glm::vec3(1, 0, 0));
     currShader->setMat4("rotfix", rot);
@@ -1531,8 +1539,8 @@ void MyDrawController::RenderSkyBox(const Camera& cam) {
   skyboxShader->setInt("skybox", ETextureSlot::SkyBox);
 
   if (m_resources.envProbe.cubeMap) {
-    // glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.cubeMap);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.irradianceMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.cubeMap);
+    // glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.envProbe.prefilterdMap);
   } else
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_resources.skyboxTextID);
 
@@ -1868,24 +1876,61 @@ static GLuint PrefilterMap(GLuint cubeMap, const Camera& cam) {
   return prefilterMap;
 }
 
+static GLuint PrecomputeBRDFLUT(const Camera& cam) {
+  GLint oldFBO = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &oldFBO);
+
+  unsigned int captureFBO, captureRBO;
+  glGenFramebuffers(1, &captureFBO);
+  glGenRenderbuffers(1, &captureRBO);
+  unsigned int brdfLUTTexture;
+  glGenTextures(1, &brdfLUTTexture);
+
+  // pre-allocate enough memory for the LUT texture.
+  glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
+  // be sure to set wrapping mode to GL_CLAMP_TO_EDGE
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  // then re-configure capture framebuffer object and render screen-space quad
+  // with BRDF shader.
+  glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+  glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         brdfLUTTexture, 0);
+
+  glViewport(0, 0, 512, 512);
+  brdfShader->use();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  renderQuad();
+
+  glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+  glViewport(0, 0, cam.Width, cam.Height);
+
+  return brdfLUTTexture;
+}
+
 void MyDrawController::IBL_PrecomputeEnvProbe(const Camera& cam,
                                               SEnvProbe& out_probe) {
   GLuint hdrTexture =
       // HDRTextureFromFile("Ridgecrest_Road_preview.jpg", m_dirPath);
-      // HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
-      HDRTextureFromFile("Newport_Loft_8k.jpg", m_dirPath);
+      HDRTextureFromFile("Ridgecrest_Road_4k_Bg.jpg", m_dirPath);
+  // HDRTextureFromFile("Newport_Loft_8k.jpg", m_dirPath);
   assert(hdrTexture);
   GLuint cubeMap = EquirectImageToCubeMap(hdrTexture, cam);
   glDeleteTextures(1, &hdrTexture);
 
   GLuint irrMap = IrradianceMapFromCubeMap(cubeMap, cam);
+  out_probe.irradianceMap = irrMap;
 
   GLuint prefMap = PrefilterMap(cubeMap, cam);
-
   out_probe.prefilterdMap = prefMap;
 
+  out_probe.brdfLUT = PrecomputeBRDFLUT(cam);
   if (out_probe.cubeMap) glDeleteTextures(1, &out_probe.cubeMap);
   out_probe.cubeMap = cubeMap;
-
-  out_probe.irradianceMap = irrMap;
 }

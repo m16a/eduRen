@@ -4,3 +4,5 @@
 
 extern glm::mat4 IBLCaptureProjection;
 extern glm::mat4 IBLCaptureViews[6];
+
+void renderQuad();

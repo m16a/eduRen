@@ -40,6 +40,7 @@ struct SEnvProbe {
   GLuint cubeMap{0};
   GLuint irradianceMap{0};
   GLuint prefilterdMap{0};
+  GLuint brdfLUT{0};
 };
 
 struct SResourceHandlers {

@@ -539,6 +539,7 @@ int main(int, char**) {
 
   // Setup ImGui binding
   ImGui_ImplGlfwGL3_Init(window, true);
+  glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
   ImGuiIO& io = ImGui::GetIO();
   mdc->Load();
 
