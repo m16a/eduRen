@@ -25,7 +25,7 @@ struct PointLight
 	float farPlane;
 };
 
-#define NR_POINT_LIGHTS 2
+#define NR_POINT_LIGHTS 6
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform int nPointLights;
 
@@ -375,7 +375,7 @@ void main()
 	float opacity = opacitySelection(TexCoords);
 
 	if (opacity < 0.03)
-		discard;
+	    discard;
 
   vec3 norm = getNormalSelection(TexCoords);
 	vec3 viewDir = normalize(camPos - FragPos);

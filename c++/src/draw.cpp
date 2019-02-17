@@ -446,12 +446,12 @@ void MyDrawController::Load() {
       "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
 #endif
 
-#if 1
+#if 0
   bool res =
       LoadScene("/home/m16a/Documents/github/eduRen/models/pbr/untitled.blend");
 #endif
 
-#if 0
+#if 1
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
@@ -461,18 +461,6 @@ void MyDrawController::Load() {
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/ssao/"
       "untitled.blend");
-#endif
-
-#if 0
-  bool res = LoadScene(
-      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
-      "sponza.blend");
-#endif
-
-#if 0
-  bool res = LoadScene(
-      "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
-      "sponza.blend");
 #endif
 
 #if 0
@@ -694,6 +682,9 @@ void MyDrawController::SetupMaterial(
       float shininess;
       if (!material.Get(AI_MATKEY_SHININESS, shininess))
         currShader->setFloat("material.shininess", shininess);
+
+      data.push_back(std::pair<std::string, std::string>("opacitySelection",
+                                                         "emptyOpacity"));
     }
 
     if (drawSkybox) {

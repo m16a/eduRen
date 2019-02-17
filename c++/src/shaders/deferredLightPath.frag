@@ -19,7 +19,7 @@ struct PointLight
 	float farPlane;
 };
 
-#define NR_POINT_LIGHTS 2
+#define NR_POINT_LIGHTS 6
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform int nPointLights;
 
