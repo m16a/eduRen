@@ -441,7 +441,7 @@ bool MyDrawController::LoadScene(const std::string& path) {
 }
 
 void MyDrawController::Load() {
-#if 0
+#if 1
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/sponza_cry/sponza.blend");
 #endif
@@ -451,7 +451,7 @@ void MyDrawController::Load() {
       LoadScene("/home/m16a/Documents/github/eduRen/models/pbr/untitled.blend");
 #endif
 
-#if 1
+#if 0
   bool res = LoadScene(
       "/home/m16a/Documents/github/eduRen/models/my_scenes/cubeWithLamp/"
       "untitled.blend");
